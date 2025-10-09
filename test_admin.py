@@ -21,4 +21,4 @@ def test_add_school_branch_admin(page):
     page.get_by_role("option", name="Male", exact=True).click()
 
     page.get_by_role("button", name="Create Admin").click()
-    expect(page.locator("body")).to_match_aria_snapshot("- status: Successfully created an admin")
+    expect(page.get_by_text("Successfully created an admin")).to_be_visible()

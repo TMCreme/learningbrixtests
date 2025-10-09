@@ -20,7 +20,7 @@ def test_create_academic_year(page):
     page.get_by_role("option", name="None").click()
     page.get_by_role("switch", name="Active").click()
     page.get_by_role("button", name="Create", exact=True).click()
-    expect(page.locator("body")).to_match_aria_snapshot("- status: Academic year created created")
+    expect(page.get_by_text("Academic year created created")).to_be_visible()
 
 
 def test_update_academic_year(page):
@@ -40,7 +40,7 @@ def test_update_academic_year(page):
     page.get_by_role("textbox", name="End date").click()
     page.get_by_title("-08-31").click()
     page.get_by_role("button", name="Update").click()
-    expect(page.locator("body")).to_match_aria_snapshot("- status: Academic year updated")
+    expect(page.get_by_text("Academic year updated")).to_be_visible()
 
 
 def test_deactivate_academic_year(page):
@@ -48,7 +48,7 @@ def test_deactivate_academic_year(page):
     page.get_by_role("button", name="Academic Year & Term").click()
     page.get_by_role("row", name="2019/2020 Active May 13, 2019").get_by_role("button").click()
     page.get_by_role("menuitem", name="Deactivate").click()
-    expect(page.locator("body")).to_match_aria_snapshot("- status: Academic year deactivated")
+    expect(page.get_by_text("Academic year deactivated")).to_be_visible()
 
 
 def test_delete_academic_year(page):
@@ -57,4 +57,4 @@ def test_delete_academic_year(page):
     page.get_by_role("row", name="2024/2025 Inactive Sep 2,").get_by_role("button").click()
     page.get_by_role("menuitem", name="Delete").click()
     page.get_by_role("button", name="Delete").click()
-    expect(page.locator("body")).to_match_aria_snapshot("- status: Academic year deleted")
+    expect(page.get_by_text("Academic year deleted")).to_be_visible()
