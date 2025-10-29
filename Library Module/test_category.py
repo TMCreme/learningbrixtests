@@ -21,7 +21,6 @@ def test_edit_category(page: Page):
     page.get_by_role("button", name="Book Categories").click()
     page.get_by_role("row", name="Lost and found October 29,").get_by_role("button").click() # edit date part to be dynamic
     page.get_by_role("button", name="Edit category").click()
-    page.get_by_role("textbox", name="Description").click()
     page.get_by_role("textbox", name="Description").fill("N/A and more")
     page.get_by_role("button", name="Save Data").click()
     expect(page.get_by_text("Category updated successfully")).to_be_visible()

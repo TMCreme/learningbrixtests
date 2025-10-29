@@ -5,7 +5,6 @@ from playwright.sync_api import expect
 
 def test_add_access_role(page):
     page.get_by_role("button", name="Add Access Role").click()
-    page.get_by_role("textbox", name="Enter role name").click()
     page.get_by_role("textbox", name="Enter role name").fill("New Role")
     page.locator(
         "div:nth-child(5) > .space-y-4 > div:nth-child(4) > .flex.items-center.gap-4 > label:nth-child(2) > .px-3").click()
