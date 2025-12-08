@@ -11,7 +11,7 @@ def test_add_category(page: Page):
     expect(page.locator("div").filter(has_text="Category added successfully").nth(2)).to_be_visible()
 
 
-def test_view_category(page: Page):
+def test_read_categories(page: Page):
     """View book category"""
     page.get_by_role("button", name="Book Categories").click()
     expect(page.get_by_role("cell", name="Lost and found")).to_be_visible()
@@ -33,3 +33,15 @@ def test_delete_category(page: Page):
     page.get_by_role("button", name="Delete category").click()
     page.get_by_role("button", name="Delete").click()
     expect(page.get_by_text("Category deleted successfully")).to_be_visible()
+
+
+def test_no_access_categories(page: Page):
+    expect(page.get_by_role("button", name="Book Categories")).not_to_be_visible()
+
+
+def test_manage_categories(page: Page):
+    test_add_category(page)
+    test_read_categories(page)
+    test_edit_category(page)
+    test_delete_category(page)
+

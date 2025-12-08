@@ -27,3 +27,22 @@ def test_add_student(page: Page):
     page.get_by_role("button", name="Continue").click()
     page.get_by_role("button", name="Add Student").click()
     expect(page.locator("div").filter(has_text=": Class student record not found").nth(2)).to_be_visible() # change this
+
+def test_read_students(page: Page):
+    pass
+
+def test_edit_student(page: Page):
+    pass
+
+def test_delete_student(page: Page):
+    pass
+
+def test_no_access_students(page: Page):
+    expect(page.get_by_role("button", name="Students")).not_to_be_visible()
+
+def test_manage_students(page: Page):
+    test_add_student(page)
+    test_read_students(page)
+    test_edit_student(page)
+    test_delete_student(page)
+

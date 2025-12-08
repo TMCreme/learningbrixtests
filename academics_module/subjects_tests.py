@@ -9,7 +9,7 @@ def test_add_subject(page: Page):
     page.get_by_label("Add Subject").get_by_role("button", name="Add Subject").click()
     expect(page.get_by_text("Subject added successfully")).to_be_visible() # verify this
 
-def test_view_subject(page: Page):
+def test_read_subjects(page: Page):
     """View subject."""
     pass
 
@@ -20,3 +20,14 @@ def test_edit_subject(page: Page):
 def test_delete_subject(page: Page):
     """Delete subject."""
     pass
+
+def test_no_access_subjects(page: Page):
+    expect(page.get_by_role("button", name="Subjects")).not_to_be_visible()
+
+
+def test_manage_subject(page: Page):
+    test_add_subject(page)
+    test_read_subjects(page)
+    test_edit_subject(page)
+    test_delete_subject(page)
+

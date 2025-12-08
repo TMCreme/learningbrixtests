@@ -30,7 +30,7 @@ def test_add_guardian(page: Page):
     page.get_by_role("button", name="Add Guardian").click()
     expect(page.get_by_text("Guardian added successfully!")).to_be_visible()
 
-def test_view_guardian(page: Page):
+def test_read_guardians(page: Page):
     """Viewing guardian"""
     page.get_by_role("button", name="Guardians").click()
     page.get_by_role("table").get_by_text("Constance Amenuvor").click()
@@ -39,7 +39,18 @@ def test_view_guardian(page: Page):
 def test_edit_guardian(page: Page):
     """Editing guardian"""
     page.get_by_role("button", name="Guardians").click()
-    page.get_by_text("Constance Amenuvor").click()
+    page.get_by_role("table").get_by_text("Constance Amenuvor").click()
     page.get_by_role("button", name="Edit Profile").click()
     page.get_by_role("textbox", name="Enter your nationality (e.g:").fill("Ghanaian")
     page.get_by_role("button", name="Continue").click()
+    expect(page.get_by_text("Guardian updated successfully")).to_be_visible()
+
+def test_no_access_guardians(page: Page):
+    expect(page.get_by_role("button", name="Guardians")).not_to_be_visible()
+
+
+def test_manage_guardians(page: Page):
+    test_add_guardian(page)
+    test_read_guardians(page)
+    test_edit_guardian(page)
+

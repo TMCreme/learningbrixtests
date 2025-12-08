@@ -82,8 +82,7 @@ def test_add_non_teaching_staff(page: Page):
     expect(page.locator("div").filter(has_text="Non-teaching staff added").nth(2)).to_be_visible()
 
 
-
-def test_view_staff(page: Page):
+def test_read_staff(page: Page):
     """Viewing staff members"""
     page.get_by_role("button", name="Staff", exact=True).click()
     page.get_by_role("cell", name="Profile Picture James Doe").locator("span").click()
@@ -115,3 +114,14 @@ def test_edit_staff(page: Page):
 def test_edit_non_teaching_staff(page: Page):
     """Editing non-teaching staff members"""
     page.get_by_role("button", name="Staff", exact=True).click()
+
+
+def test_no_access_staff(page: Page):
+    expect(page.get_by_role("button", name="Staff", exact=True)).not_to_be_visible()
+
+def test_manage_staff(page: Page):
+    test_add_teaching_staff(page)
+    test_add_non_teaching_staff(page)
+    test_read_staff(page)
+    test_edit_staff(page)
+    test_edit_non_teaching_staff(page)

@@ -17,18 +17,29 @@ def test_add_fee(page: Page):
     page.get_by_role("button", name="Create", exact=True).click()
     page.locator("div").filter(has_text="Fee created successfully").nth(2).click()
 
+
 def test_add_fee_group(page: Page):
     pass
 
-def test_view_fee(page: Page):
+
+def test_read_fees(page: Page):
     pass
+
 
 def test_view_fee_group(page: Page):
     pass
 
+
 def test_edit_fee(page: Page):
     pass
+
 
 def test_edit_fee_group(page: Page):
     pass
 
+
+def test_manage_fees(page: Page):
+    pass
+
+def test_no_access_fees(page: Page):
+    pass
