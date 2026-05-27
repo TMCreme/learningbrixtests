@@ -1,0 +1,854 @@
+[
+  {
+    "id": 1,
+    "name": "Admin",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 2,
+        "name": "manage",
+        "module": "home",
+        "module_name": "manage_home"
+      },
+      {
+        "id": 3,
+        "name": "read",
+        "module": "dashboard",
+        "module_name": "read_dashboard"
+      },
+      {
+        "id": 4,
+        "name": "manage",
+        "module": "dashboard",
+        "module_name": "manage_dashboard"
+      },
+      {
+        "id": 5,
+        "name": "read",
+        "module": "students",
+        "module_name": "read_students"
+      },
+      {
+        "id": 6,
+        "name": "manage",
+        "module": "students",
+        "module_name": "manage_students"
+      },
+      {
+        "id": 7,
+        "name": "read",
+        "module": "staff",
+        "module_name": "read_staff"
+      },
+      {
+        "id": 8,
+        "name": "manage",
+        "module": "staff",
+        "module_name": "manage_staff"
+      },
+      {
+        "id": 9,
+        "name": "read",
+        "module": "guardians",
+        "module_name": "read_guardians"
+      },
+      {
+        "id": 10,
+        "name": "manage",
+        "module": "guardians",
+        "module_name": "manage_guardians"
+      },
+      {
+        "id": 11,
+        "name": "read",
+        "module": "fees",
+        "module_name": "read_fees"
+      },
+      {
+        "id": 12,
+        "name": "manage",
+        "module": "fees",
+        "module_name": "manage_fees"
+      },
+      {
+        "id": 13,
+        "name": "read",
+        "module": "incomes_and_expenses",
+        "module_name": "read_incomes_and_expenses"
+      },
+      {
+        "id": 14,
+        "name": "manage",
+        "module": "incomes_and_expenses",
+        "module_name": "manage_incomes_and_expenses"
+      },
+      {
+        "id": 15,
+        "name": "read",
+        "module": "payslips",
+        "module_name": "read_payslips"
+      },
+      {
+        "id": 16,
+        "name": "manage",
+        "module": "payslips",
+        "module_name": "manage_payslips"
+      },
+      {
+        "id": 17,
+        "name": "read",
+        "module": "staff_payroll",
+        "module_name": "read_staff_payroll"
+      },
+      {
+        "id": 18,
+        "name": "manage",
+        "module": "staff_payroll",
+        "module_name": "manage_staff_payroll"
+      },
+      {
+        "id": 19,
+        "name": "read",
+        "module": "categories",
+        "module_name": "read_categories"
+      },
+      {
+        "id": 20,
+        "name": "manage",
+        "module": "categories",
+        "module_name": "manage_categories"
+      },
+      {
+        "id": 21,
+        "name": "read",
+        "module": "catalogue",
+        "module_name": "read_catalogue"
+      },
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 23,
+        "name": "read",
+        "module": "statistics",
+        "module_name": "read_statistics"
+      },
+      {
+        "id": 24,
+        "name": "manage",
+        "module": "statistics",
+        "module_name": "manage_statistics"
+      },
+      {
+        "id": 25,
+        "name": "read",
+        "module": "requests_and_renewals",
+        "module_name": "read_requests_and_renewals"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 27,
+        "name": "read",
+        "module": "subjects",
+        "module_name": "read_subjects"
+      },
+      {
+        "id": 28,
+        "name": "manage",
+        "module": "subjects",
+        "module_name": "manage_subjects"
+      },
+      {
+        "id": 29,
+        "name": "read",
+        "module": "classes_and_timetables",
+        "module_name": "read_classes_and_timetables"
+      },
+      {
+        "id": 30,
+        "name": "manage",
+        "module": "classes_and_timetables",
+        "module_name": "manage_classes_and_timetables"
+      },
+      {
+        "id": 31,
+        "name": "read",
+        "module": "exams",
+        "module_name": "read_exams"
+      },
+      {
+        "id": 32,
+        "name": "manage",
+        "module": "exams",
+        "module_name": "manage_exams"
+      },
+      {
+        "id": 33,
+        "name": "read",
+        "module": "attendance",
+        "module_name": "read_attendance"
+      },
+      {
+        "id": 34,
+        "name": "manage",
+        "module": "attendance",
+        "module_name": "manage_attendance"
+      },
+      {
+        "id": 67,
+        "name": "read",
+        "module": "employee_benefit",
+        "module_name": "read_employee_benefit"
+      },
+      {
+        "id": 68,
+        "name": "manage",
+        "module": "employee_benefit",
+        "module_name": "manage_employee_benefit"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Student",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": [
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 19,
+        "name": "read",
+        "module": "categories",
+        "module_name": "read_categories"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Staff",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": []
+  },
+  {
+    "id": 5,
+    "name": "Parent",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": []
+  },
+  {
+    "id": 6,
+    "name": "Headmaster",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": []
+  },
+  {
+    "id": 7,
+    "name": "Proprietor",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": []
+  },
+  {
+    "id": 8,
+    "name": "SchoolAdmin",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": true,
+    "deletable": true,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 3,
+        "name": "read",
+        "module": "dashboard",
+        "module_name": "read_dashboard"
+      },
+      {
+        "id": 6,
+        "name": "manage",
+        "module": "students",
+        "module_name": "manage_students"
+      },
+      {
+        "id": 8,
+        "name": "manage",
+        "module": "staff",
+        "module_name": "manage_staff"
+      },
+      {
+        "id": 10,
+        "name": "manage",
+        "module": "guardians",
+        "module_name": "manage_guardians"
+      },
+      {
+        "id": 12,
+        "name": "manage",
+        "module": "fees",
+        "module_name": "manage_fees"
+      },
+      {
+        "id": 14,
+        "name": "manage",
+        "module": "incomes_and_expenses",
+        "module_name": "manage_incomes_and_expenses"
+      },
+      {
+        "id": 16,
+        "name": "manage",
+        "module": "payslips",
+        "module_name": "manage_payslips"
+      },
+      {
+        "id": 18,
+        "name": "manage",
+        "module": "staff_payroll",
+        "module_name": "manage_staff_payroll"
+      },
+      {
+        "id": 20,
+        "name": "manage",
+        "module": "categories",
+        "module_name": "manage_categories"
+      },
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 28,
+        "name": "manage",
+        "module": "subjects",
+        "module_name": "manage_subjects"
+      },
+      {
+        "id": 30,
+        "name": "manage",
+        "module": "classes_and_timetables",
+        "module_name": "manage_classes_and_timetables"
+      },
+      {
+        "id": 32,
+        "name": "manage",
+        "module": "exams",
+        "module_name": "manage_exams"
+      },
+      {
+        "id": 34,
+        "name": "manage",
+        "module": "attendance",
+        "module_name": "manage_attendance"
+      },
+      {
+        "id": 36,
+        "name": "manage",
+        "module": "access_roles",
+        "module_name": "manage_access_roles"
+      },
+      {
+        "id": 38,
+        "name": "manage",
+        "module": "school_configuration",
+        "module_name": "manage_school_configuration"
+      },
+      {
+        "id": 68,
+        "name": "manage",
+        "module": "employee_benefit",
+        "module_name": "manage_employee_benefit"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Guardian",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": false,
+    "deletable": false,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Teacher",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": false,
+    "deletable": false,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 5,
+        "name": "read",
+        "module": "students",
+        "module_name": "read_students"
+      },
+      {
+        "id": 19,
+        "name": "read",
+        "module": "categories",
+        "module_name": "read_categories"
+      },
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 29,
+        "name": "read",
+        "module": "classes_and_timetables",
+        "module_name": "read_classes_and_timetables"
+      },
+      {
+        "id": 32,
+        "name": "manage",
+        "module": "exams",
+        "module_name": "manage_exams"
+      },
+      {
+        "id": 34,
+        "name": "manage",
+        "module": "attendance",
+        "module_name": "manage_attendance"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "name": "SuperAdmin",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": false,
+    "deletable": false,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 2,
+        "name": "manage",
+        "module": "home",
+        "module_name": "manage_home"
+      },
+      {
+        "id": 3,
+        "name": "read",
+        "module": "dashboard",
+        "module_name": "read_dashboard"
+      },
+      {
+        "id": 4,
+        "name": "manage",
+        "module": "dashboard",
+        "module_name": "manage_dashboard"
+      },
+      {
+        "id": 5,
+        "name": "read",
+        "module": "students",
+        "module_name": "read_students"
+      },
+      {
+        "id": 6,
+        "name": "manage",
+        "module": "students",
+        "module_name": "manage_students"
+      },
+      {
+        "id": 7,
+        "name": "read",
+        "module": "staff",
+        "module_name": "read_staff"
+      },
+      {
+        "id": 8,
+        "name": "manage",
+        "module": "staff",
+        "module_name": "manage_staff"
+      },
+      {
+        "id": 9,
+        "name": "read",
+        "module": "guardians",
+        "module_name": "read_guardians"
+      },
+      {
+        "id": 10,
+        "name": "manage",
+        "module": "guardians",
+        "module_name": "manage_guardians"
+      },
+      {
+        "id": 11,
+        "name": "read",
+        "module": "fees",
+        "module_name": "read_fees"
+      },
+      {
+        "id": 12,
+        "name": "manage",
+        "module": "fees",
+        "module_name": "manage_fees"
+      },
+      {
+        "id": 13,
+        "name": "read",
+        "module": "incomes_and_expenses",
+        "module_name": "read_incomes_and_expenses"
+      },
+      {
+        "id": 14,
+        "name": "manage",
+        "module": "incomes_and_expenses",
+        "module_name": "manage_incomes_and_expenses"
+      },
+      {
+        "id": 15,
+        "name": "read",
+        "module": "payslips",
+        "module_name": "read_payslips"
+      },
+      {
+        "id": 16,
+        "name": "manage",
+        "module": "payslips",
+        "module_name": "manage_payslips"
+      },
+      {
+        "id": 17,
+        "name": "read",
+        "module": "staff_payroll",
+        "module_name": "read_staff_payroll"
+      },
+      {
+        "id": 18,
+        "name": "manage",
+        "module": "staff_payroll",
+        "module_name": "manage_staff_payroll"
+      },
+      {
+        "id": 19,
+        "name": "read",
+        "module": "categories",
+        "module_name": "read_categories"
+      },
+      {
+        "id": 20,
+        "name": "manage",
+        "module": "categories",
+        "module_name": "manage_categories"
+      },
+      {
+        "id": 21,
+        "name": "read",
+        "module": "catalogue",
+        "module_name": "read_catalogue"
+      },
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 23,
+        "name": "read",
+        "module": "statistics",
+        "module_name": "read_statistics"
+      },
+      {
+        "id": 24,
+        "name": "manage",
+        "module": "statistics",
+        "module_name": "manage_statistics"
+      },
+      {
+        "id": 25,
+        "name": "read",
+        "module": "requests_and_renewals",
+        "module_name": "read_requests_and_renewals"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 27,
+        "name": "read",
+        "module": "subjects",
+        "module_name": "read_subjects"
+      },
+      {
+        "id": 28,
+        "name": "manage",
+        "module": "subjects",
+        "module_name": "manage_subjects"
+      },
+      {
+        "id": 29,
+        "name": "read",
+        "module": "classes_and_timetables",
+        "module_name": "read_classes_and_timetables"
+      },
+      {
+        "id": 30,
+        "name": "manage",
+        "module": "classes_and_timetables",
+        "module_name": "manage_classes_and_timetables"
+      },
+      {
+        "id": 31,
+        "name": "read",
+        "module": "exams",
+        "module_name": "read_exams"
+      },
+      {
+        "id": 32,
+        "name": "manage",
+        "module": "exams",
+        "module_name": "manage_exams"
+      },
+      {
+        "id": 33,
+        "name": "read",
+        "module": "attendance",
+        "module_name": "read_attendance"
+      },
+      {
+        "id": 34,
+        "name": "manage",
+        "module": "attendance",
+        "module_name": "manage_attendance"
+      },
+      {
+        "id": 35,
+        "name": "read",
+        "module": "access_roles",
+        "module_name": "read_access_roles"
+      },
+      {
+        "id": 36,
+        "name": "manage",
+        "module": "access_roles",
+        "module_name": "manage_access_roles"
+      },
+      {
+        "id": 37,
+        "name": "read",
+        "module": "school_configuration",
+        "module_name": "read_school_configuration"
+      },
+      {
+        "id": 38,
+        "name": "manage",
+        "module": "school_configuration",
+        "module_name": "manage_school_configuration"
+      },
+      {
+        "id": 67,
+        "name": "read",
+        "module": "employee_benefit",
+        "module_name": "read_employee_benefit"
+      },
+      {
+        "id": 68,
+        "name": "manage",
+        "module": "employee_benefit",
+        "module_name": "manage_employee_benefit"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "name": "Non_teaching_staff",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "01-09-25 20:32:39",
+    "editable": false,
+    "deletable": false,
+    "permissions": [
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 7,
+        "name": "read",
+        "module": "staff",
+        "module_name": "read_staff"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Accountant",
+    "date_created": "01-09-25 20:32:39",
+    "last_modified": "09-10-25 03:51:18",
+    "editable": true,
+    "deletable": true,
+    "permissions": [
+      {
+        "id": 67,
+        "name": "read",
+        "module": "employee_benefit",
+        "module_name": "read_employee_benefit"
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "name": "Library Admin",
+    "date_created": "09-10-25 18:44:23",
+    "last_modified": "09-10-25 18:58:53",
+    "editable": true,
+    "deletable": true,
+    "permissions": [
+      {
+        "id": 5,
+        "name": "read",
+        "module": "students",
+        "module_name": "read_students"
+      },
+      {
+        "id": 26,
+        "name": "manage",
+        "module": "requests_and_renewals",
+        "module_name": "manage_requests_and_renewals"
+      },
+      {
+        "id": 1,
+        "name": "read",
+        "module": "home",
+        "module_name": "read_home"
+      },
+      {
+        "id": 22,
+        "name": "manage",
+        "module": "catalogue",
+        "module_name": "manage_catalogue"
+      },
+      {
+        "id": 3,
+        "name": "read",
+        "module": "dashboard",
+        "module_name": "read_dashboard"
+      },
+      {
+        "id": 9,
+        "name": "read",
+        "module": "guardians",
+        "module_name": "read_guardians"
+      },
+      {
+        "id": 7,
+        "name": "read",
+        "module": "staff",
+        "module_name": "read_staff"
+      },
+      {
+        "id": 20,
+        "name": "manage",
+        "module": "categories",
+        "module_name": "manage_categories"
+      },
+      {
+        "id": 24,
+        "name": "manage",
+        "module": "statistics",
+        "module_name": "manage_statistics"
+      },
+      {
+        "id": 29,
+        "name": "read",
+        "module": "classes_and_timetables",
+        "module_name": "read_classes_and_timetables"
+      }
+    ]
+  }
+]
