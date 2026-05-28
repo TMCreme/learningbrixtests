@@ -1,0 +1,10 @@
+greenlet==3.5.1
+playwright==1.60.0
+pyee==13.0.1
+typing_extensions==4.15.0
+pytest==7.4.0
+pytest-asyncio==0.20.3
+pytest-cov==4.0.0
+pytest-mock==3.10.0
+pytest-xdist==3.2.0
+coverage==7.2.7
