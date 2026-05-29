@@ -1,10 +1,23 @@
-greenlet==3.5.1
-playwright==1.60.0
-pyee==13.0.1
-typing_extensions==4.15.0
-pytest==7.4.0
-pytest-asyncio==0.20.3
-pytest-cov==4.0.0
-pytest-mock==3.10.0
-pytest-xdist==3.2.0
-coverage==7.2.7
+# Browser automation
+playwright==1.49.1
+pytest-playwright==0.6.2
+
+# Test runner
+pytest==8.3.4
+pytest-html==4.1.1
+pytest-rerunfailures==15.0
+
+# Config & data
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+PyYAML==6.0.2
+
+# HTTP (setup-only backend calls)
+httpx==0.28.1
+
+# Test data
+Faker==33.1.0
+
+# Logging
+structlog==24.4.0

@@ -1,0 +1,75 @@
+# Each scenario provisions one test school with a specific feature-pack mix.
+# Every test file runs once per scenario:
+#   • module in scenario.modules → positive path expected
+#   • module not in scenario.modules → negative path (access denied) expected
+#
+# Fill in 5 scenarios that together exercise every module both ON and OFF.
+# `school_configuration` is required in every scenario (SchoolAdmin can't
+# operate without it).
+
+scenarios:
+  - id: full_access
+    school_name: "TEST Mountain View Academy"
+    feature_pack_name: "TEST All Modules"
+    modules:
+      - home
+      - dashboard
+      - students
+      - staff
+      - guardians
+      - fees
+      - incomes_and_expenses
+      - employee_benefit
+      - staff_payroll
+      - categories
+      - catalogue
+      - statistics
+      - requests_and_renewals
+      - subjects
+      - classes_and_timetables
+      - exams
+      - attendance
+      - lessons
+      - syllabi
+      - topics
+      - assessments
+      - student_timetables
+      - student_scores
+      - change_requests
+      - incidents
+      - school_admin_dashboard
+      - school_configuration
+      - access_roles
+      - audit_trails
+      - academic_year_and_term
+      - messaging
+      - community
+
+  # TODO: define 4 more scenarios with different module subsets.
+  # Suggested coverage so every module is tested both ON and OFF at least once:
+  #
+  # - id: academics_only
+  #   school_name: "TEST Sunrise Prep"
+  #   feature_pack_name: "TEST Academics Pack"
+  #   modules: [home, school_configuration, school_admin_dashboard,
+  #             students, staff, classes_and_timetables, subjects,
+  #             attendance, lessons, assessments, academic_year_and_term]
+  #
+  # - id: finance_only
+  #   school_name: "TEST Riverside Finance School"
+  #   feature_pack_name: "TEST Finance Pack"
+  #   modules: [home, school_configuration, school_admin_dashboard,
+  #             fees, incomes_and_expenses, staff_payroll, employee_benefit,
+  #             academic_year_and_term, access_roles]
+  #
+  # - id: library_only
+  #   school_name: "TEST Bookworm Academy"
+  #   feature_pack_name: "TEST Library Pack"
+  #   modules: [home, school_configuration, school_admin_dashboard,
+  #             categories, catalogue, statistics, requests_and_renewals,
+  #             access_roles]
+  #
+  # - id: minimal
+  #   school_name: "TEST Bare Bones School"
+  #   feature_pack_name: "TEST Minimal Pack"
+  #   modules: [home, school_configuration, school_admin_dashboard]
