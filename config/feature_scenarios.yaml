@@ -1,13 +1,21 @@
 # Each scenario provisions one test school with a specific feature-pack mix.
-# Every test file runs once per scenario:
-#   • module in scenario.modules → positive path expected
+# Every module test runs once per scenario:
+#   • module in scenario.modules     → positive path expected
 #   • module not in scenario.modules → negative path (access denied) expected
 #
-# Fill in 5 scenarios that together exercise every module both ON and OFF.
-# `school_configuration` is required in every scenario (SchoolAdmin can't
-# operate without it).
+# Coverage invariant, enforced by config/scenarios.py::coverage_warnings():
+# every module in config/module_catalog.py is ON in at least one scenario and
+# OFF in at least one other. The single exception is `school_configuration`,
+# which the loader REQUIRES in every scenario — without it a SchoolAdmin cannot
+# complete onboarding, so it is deliberately never negatively tested.
+#
+# school_name / feature_pack_name are suffixed with a per-run tag at
+# provisioning time (see tests/fixtures/data_factories.py::run_tag) so parallel
+# agents never collide on names. The "TEST" prefix is what the orphan sweeper
+# matches on — do not remove it.
 
 scenarios:
+  # ── 1. Everything on. The positive-path baseline for every module. ─────────
   - id: full_access
     school_name: "TEST Mountain View Academy"
     feature_pack_name: "TEST All Modules"
@@ -45,31 +53,80 @@ scenarios:
       - messaging
       - community
 
-  # TODO: define 4 more scenarios with different module subsets.
-  # Suggested coverage so every module is tested both ON and OFF at least once:
-  #
-  # - id: academics_only
-  #   school_name: "TEST Sunrise Prep"
-  #   feature_pack_name: "TEST Academics Pack"
-  #   modules: [home, school_configuration, school_admin_dashboard,
-  #             students, staff, classes_and_timetables, subjects,
-  #             attendance, lessons, assessments, academic_year_and_term]
-  #
-  # - id: finance_only
-  #   school_name: "TEST Riverside Finance School"
-  #   feature_pack_name: "TEST Finance Pack"
-  #   modules: [home, school_configuration, school_admin_dashboard,
-  #             fees, incomes_and_expenses, staff_payroll, employee_benefit,
-  #             academic_year_and_term, access_roles]
-  #
-  # - id: library_only
-  #   school_name: "TEST Bookworm Academy"
-  #   feature_pack_name: "TEST Library Pack"
-  #   modules: [home, school_configuration, school_admin_dashboard,
-  #             categories, catalogue, statistics, requests_and_renewals,
-  #             access_roles]
-  #
-  # - id: minimal
-  #   school_name: "TEST Bare Bones School"
-  #   feature_pack_name: "TEST Minimal Pack"
-  #   modules: [home, school_configuration, school_admin_dashboard]
+  # ── 2. Teaching-focused school. No money, no library, no comms. ────────────
+  #    Also drops school_admin_dashboard, so that module gets a negative path.
+  - id: academics_only
+    school_name: "TEST Sunrise Prep"
+    feature_pack_name: "TEST Academics Pack"
+    modules:
+      - home
+      - dashboard
+      - school_configuration
+      - academic_year_and_term
+      - access_roles
+      - students
+      - staff
+      - guardians
+      - subjects
+      - classes_and_timetables
+      - exams
+      - attendance
+      - lessons
+      - syllabi
+      - topics
+      - assessments
+      - student_timetables
+      - student_scores
+
+  # ── 3. Bursary / back-office school. Finance + payroll, no teaching. ───────
+  - id: finance_only
+    school_name: "TEST Riverside Finance School"
+    feature_pack_name: "TEST Finance Pack"
+    modules:
+      - home
+      - dashboard
+      - school_admin_dashboard
+      - school_configuration
+      - academic_year_and_term
+      - access_roles
+      - audit_trails
+      - students
+      - staff
+      - fees
+      - incomes_and_expenses
+      - employee_benefit
+      - staff_payroll
+
+  # ── 4. Library + engagement school. Comms, incidents, change requests. ─────
+  - id: library_and_community
+    school_name: "TEST Bookworm Academy"
+    feature_pack_name: "TEST Library & Community Pack"
+    modules:
+      - home
+      - dashboard
+      - school_admin_dashboard
+      - school_configuration
+      - academic_year_and_term
+      - access_roles
+      - students
+      - staff
+      - guardians
+      - categories
+      - catalogue
+      - statistics
+      - requests_and_renewals
+      - messaging
+      - community
+      - incidents
+      - change_requests
+
+  # ── 5. Floor case. Proves the app degrades gracefully to near-nothing. ─────
+  #    Every gatable module except configuration + the admin dashboard is OFF,
+  #    which is what supplies the negative path for home, dashboard, students,
+  #    staff, access_roles and academic_year_and_term.
+  - id: minimal
+    school_name: "TEST Bare Bones School"
+    feature_pack_name: "TEST Minimal Pack"
+    modules:
+      - school_configuration
+      - school_admin_dashboard

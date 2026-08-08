@@ -75,6 +75,12 @@ class BackendAPI:
     def post(self, path: str, *, token: str | None = None, **kw) -> httpx.Response:
         return self._req("POST", path, token=token, **kw)
 
+    def put(self, path: str, *, token: str | None = None, **kw) -> httpx.Response:
+        return self._req("PUT", path, token=token, **kw)
+
+    def patch(self, path: str, *, token: str | None = None, **kw) -> httpx.Response:
+        return self._req("PATCH", path, token=token, **kw)
+
     def delete(self, path: str, *, token: str | None = None, **kw) -> httpx.Response:
         return self._req("DELETE", path, token=token, **kw)
 

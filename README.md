@@ -6,7 +6,10 @@ SuperAdmin creates a school, the SchoolAdmin onboards branches/users/academic
 calendar, then each role exercises their permitted modules. Schools are torn
 down in teardown.
 
-The full design lives in [docs/plan.md](docs/plan.md).
+Tests are written, fixed and recorded by agents working the feature queue in
+parallel — see **[docs/autonomous_loop.md](docs/autonomous_loop.md)** for how to
+run that. The original suite design is [docs/plan.md](docs/plan.md); where the
+two disagree, the autonomous-loop doc is current.
 
 ---
 
@@ -17,26 +20,33 @@ The full design lives in [docs/plan.md](docs/plan.md).
 git clone <repo-url> learningbrixtests
 cd learningbrixtests
 
-# 2. Python env + deps
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
-
-# 3. Configure
+# 2. Configure
 cp .env.example .env
-# Edit .env — at minimum set SUPERADMIN_PASSWORD and confirm the backend/frontend URLs.
+# Set BACKEND_REPO_PATH / FRONTEND_REPO_PATH to your local app checkouts.
 
-# 4. Make sure the apps under test are running
-#    - backend:  uvicorn app:app --reload          (port 8000)
-#    - frontend: npm run dev   (in the smsfrontend repo, port 3000)
+# 3. Start the apps under test
+#    - backend:  docker compose up -d      (schoolapp container, port 8093)
+#    - frontend: npm run dev               (smsfrontend repo, port 3000)
+
+# 4. Everything else — venv, deps, chromium, ffmpeg, the SuperAdmin,
+#    backend QA mode, the feature queue — is handled here:
+python3 scripts/preflight.py
 
 # 5. Smoke check
-pytest tests/test_smoke.py -v
+.venv/bin/pytest -m smoke -v
 ```
 
-`pytest tests/test_smoke.py` should pass once the backend and frontend are up
-and the `.env` is filled in. From there, the rest of the suite layers on top.
+`scripts/preflight.py` is idempotent and self-healing: run it any time. It
+prints one line per check and exits non-zero with the specific reason if
+something needs you.
+
+Then either run the suite by hand, or start the loop:
+
+```bash
+.venv/bin/pytest tests/modules/academics -v            # by hand
+# or, from a Claude Code session:
+Workflow({ scriptPath: 'workflows/autonomous_feature_loop.workflow.js' })
+```
 
 ---
 
@@ -55,12 +65,17 @@ and the `.env` is filled in. From there, the rest of the suite layers on top.
   `DELETE /api/v1/school_profile/{id}`.
 - Captures a screenshot of the failing page and embeds it in the HTML report.
 
-**Doesn't (yet)**
-- Send real email/SMS. The backend is expected to expose a "test mode"
-  that returns invite/reset links inline in the HTTP response under a
-  `test_mode` key. Toggle with `BACKEND_TEST_MODE=true`.
-- Run tests in parallel. Serial only in v1 to keep cross-school isolation
-  simple.
+- Records a narrated demo video per feature, from the **passing** test, and
+  builds a gallery at `artifacts/videos/out/index.html`.
+
+**Doesn't**
+- Send real email/SMS. The backend now implements a QA mode that returns
+  generated passwords and invite/reset links inline under a `test_mode` key
+  (and in an `X-Test-Mode` header). Enable with
+  `touch ../newschoolapp/.qa_mode_enabled`; details in
+  [state/backend_patches.md](state/backend_patches.md).
+- Run *pytest* in parallel. Parallelism is at the agent level instead — each
+  agent owns its own school, tagged with a per-process run tag.
 - Cross-browser. Chromium only. Firefox/WebKit can be added later via
   pytest-playwright's `--browser` flag.
 

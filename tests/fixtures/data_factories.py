@@ -5,8 +5,12 @@ import os
 import uuid
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
 from faker import Faker
 
+# pydantic-settings reads .env without exporting it, so load it here too — this
+# module is imported outside the settings fixture.
+load_dotenv()
 
 fake = Faker()
 Faker.seed(int(os.environ.get("FAKER_SEED", "0")) or None)
@@ -19,8 +23,13 @@ TEST_PREFIX = "TEST"
 _RUN_TAG = uuid.uuid4().hex[:6]
 
 
+# The backend's email validator rejects reserved TLDs (.test/.example/.invalid)
+# with a 422, so generated addresses must use a normal-looking domain.
+EMAIL_DOMAIN = os.environ.get("TEST_EMAIL_DOMAIN", "learningbrix-qa.com")
+
+
 def unique_email(role: str, school_id: str | int = "x") -> str:
-    return f"playwright+{role}-{school_id}-{_RUN_TAG}-{uuid.uuid4().hex[:4]}@learningbrix.test"
+    return f"playwright+{role}-{school_id}-{_RUN_TAG}-{uuid.uuid4().hex[:4]}@{EMAIL_DOMAIN}"
 
 
 @dataclass
@@ -70,7 +79,7 @@ class SchoolSeed:
             name=school_name,
             address=fake.street_address(),
             phone=fake.numerify("0302######"),
-            email=f"contact-{scenario_id}-{_RUN_TAG}@learningbrix.test",
+            email=f"contact-{scenario_id}-{_RUN_TAG}@{EMAIL_DOMAIN}",
             admin_first_name=fake.first_name(),
             admin_other_names=fake.last_name(),
             admin_email=unique_email("admin", scenario_id),

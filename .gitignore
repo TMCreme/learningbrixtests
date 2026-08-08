@@ -15,3 +15,13 @@ playwright-report/
 .venv/
 venv/
 .python-version
+
+# Autonomous-loop runtime state. The ledger and blocker log are per-machine
+# progress, not source. backend_patches.md IS tracked — it documents the
+# uncommitted changes made to the app repos and needs to be reviewable.
+state/feature_ledger.json
+state/preflight.json
+state/repo_baseline.json
+state/blockers.md
+
+.DS_Store

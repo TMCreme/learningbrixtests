@@ -53,7 +53,10 @@ CATALOG: tuple[ModuleDef, ...] = (
     ModuleDef("student_scores",             "academics",         "student_assessment_score"),
 
     # change requests / incidents
-    ModuleDef("change_requests",            "change_requests",   None),
+    # "pending_requests" is the approver-facing page and the only one of the two
+    # change-request routes a SchoolAdmin is offered; the requester-facing
+    # "/module/change_request" excludes Admin and SchoolAdmin in nav-config.
+    ModuleDef("change_requests",            "change_requests",   "pending_requests"),
     ModuleDef("incidents",                  "incident_reports",  "incidents_reporting"),
 
     # governance

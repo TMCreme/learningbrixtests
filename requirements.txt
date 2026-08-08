@@ -21,3 +21,6 @@ Faker==33.1.0
 
 # Logging
 structlog==24.4.0
+
+# Caption/title rendering for demo videos (this ffmpeg build lacks freetype)
+Pillow==11.1.0

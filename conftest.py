@@ -23,6 +23,9 @@ from config.scenarios import Scenario, load_scenarios, coverage_warnings  # noqa
 from tests.fixtures.api_client import BackendAPI, Credentials  # noqa: E402
 from tests.fixtures.bootstrap import ensure_superadmin  # noqa: E402
 
+# pytest 8 only honours pytest_plugins in the rootdir conftest.
+pytest_plugins = ("tests.fixtures.video", "tests.fixtures.provisioned_school")
+
 
 # ──────────────────────────── logging ────────────────────────────
 
@@ -115,10 +118,16 @@ def browser_context_args(browser_context_args, settings: Settings):
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)
 def pytest_runtest_makereport(item, call):
-    """Capture a screenshot when a test fails.
+    """Capture a screenshot and the DOM when a test fails.
 
-    Looks up the `page` fixture if it was used; silently skips for
-    non-browser tests.
+    A demo test drives ``demo.page`` — a page on the recorder's own browser
+    context, *not* pytest-playwright's ``page`` fixture, which such a test never
+    navigates. Screenshotting ``page`` there yields a blank frame that hides the
+    failure, so the demo's page wins whenever the test used one.
+
+    The DOM is written beside the image because most failures here are "a
+    selector matched nothing", and the answer to those is in the markup rather
+    than in the pixels.
     """
     outcome = yield
     report = outcome.get_result()
@@ -126,7 +135,12 @@ def pytest_runtest_makereport(item, call):
     if report.when != "call" or report.passed:
         return
 
-    page = item.funcargs.get("page")
+    # Tell the `demo` fixture the test failed, so the renderer skips its video —
+    # a published demo must only ever show a feature that actually works.
+    item._demo_failed = True
+
+    demo = item.funcargs.get("demo")
+    page = getattr(demo, "page", None) or item.funcargs.get("page")
     if page is None:
         return
 
@@ -141,6 +155,12 @@ def pytest_runtest_makereport(item, call):
     path = artifacts_dir / f"{safe_name}.png"
     try:
         page.screenshot(path=str(path), full_page=True)
+        try:
+            (artifacts_dir / f"{safe_name}.html").write_text(
+                page.content(), encoding="utf-8"
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("dom_dump_failed", test=item.nodeid, error=str(e))
         log.warning("screenshot_saved", test=item.nodeid, path=str(path))
         # Attach into the HTML report if pytest-html is loaded.
         if hasattr(report, "extras"):
