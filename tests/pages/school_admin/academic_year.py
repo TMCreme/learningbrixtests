@@ -5,9 +5,17 @@ import re
 
 from playwright.sync_api import Locator, expect
 
-from tests.pages.base import BasePage
+from tests.pages.base import BasePage, as_pattern
 
 HEADING = re.compile(r"^\s*academic settings\s*$", re.I)
+
+# The sidebar entry (SideNavigation/nav-config.tsx, the "Governance Module"
+# section). That whole section is `roleGate: ["SchoolAdmin"]` *and*
+# `noBranchOnly: true`, so it disappears the moment a SchoolAdmin picks a branch
+# — never call BranchesPage.select_branch before reaching this screen from the
+# menu. Nothing here needs a branch anyway: an academic year is school-scoped
+# (the page reads school_id from the auth store, not from useBranchStore).
+NAV_ACADEMIC_YEAR = re.compile(r"^\s*academic year & term\s*$", re.I)
 
 # The tab buttons carry a count badge ("Academic Years 3"), so never anchor the tail.
 YEARS_TAB = re.compile(r"^\s*academic years\b", re.I)
@@ -19,20 +27,32 @@ CREATE_TERM_TRIGGER = re.compile(r"^\s*create academic term\s*$", re.I)
 YEAR_MODAL = re.compile(r"create new academic year", re.I)
 TERM_MODAL = re.compile(r"create new academic term", re.I)
 
+# Editing reuses the very same antd Modal with its title and OK label swapped
+# (page.tsx: `title={yearForm.id ? "Edit Academic Year" : "Create New …"}`), so
+# the two are told apart by title alone.
+EDIT_YEAR_MODAL = re.compile(r"edit academic year", re.I)
+EDIT_TERM_MODAL = re.compile(r"edit academic term", re.I)
+
 NAME_FIELD = re.compile(r"^\s*name\s*\*?\s*$", re.I)
 START_DATE_FIELD = re.compile(r"^\s*start date\s*$", re.I)
 END_DATE_FIELD = re.compile(r"^\s*end date\s*$", re.I)
 YEAR_SELECT_TRIGGER = re.compile(r"^\s*select academic year\s*$", re.I)
 
-# antd swaps the OK label to "Creating..." while the request is in flight.
+# antd swaps the OK label to "Creating..." while the request is in flight, and
+# to "Updating..." on the edit side.
 SUBMIT_BUTTON = re.compile(r"^\s*creat(e|ing)", re.I)
+UPDATE_BUTTON = re.compile(r"^\s*updat(e|ing)", re.I)
 
+EDIT_ITEM = re.compile(r"^\s*edit\s*$", re.I)
 ACTIVATE_ITEM = re.compile(r"^\s*activate\s*$", re.I)
 ACTIVE_BADGE = re.compile(r"^\s*active\s*$", re.I)
+INACTIVE_BADGE = re.compile(r"^\s*inactive\s*$", re.I)
 
 YEAR_CREATED_TOAST = re.compile(r"academic year created successfully", re.I)
+YEAR_UPDATED_TOAST = re.compile(r"academic year updated successfully", re.I)
 YEAR_ACTIVATED_TOAST = re.compile(r"academic year activated successfully", re.I)
 TERM_CREATED_TOAST = re.compile(r"academic term created successfully", re.I)
+TERM_UPDATED_TOAST = re.compile(r"academic term updated successfully", re.I)
 TERM_ACTIVATED_TOAST = re.compile(r"academic term activated successfully", re.I)
 
 
@@ -41,8 +61,36 @@ class AcademicYearTermPage(BasePage):
 
     def open(self) -> "AcademicYearTermPage":
         super().open()
-        expect(self.page.get_by_role("heading", name=HEADING)).to_be_visible(timeout=15_000)
+        self.expect_loaded()
         return self
+
+    def open_from_nav(self) -> "AcademicYearTermPage":
+        """Reach the screen the way a school administrator does — the menu.
+
+        A demo video has to show how someone gets to the module rather than
+        teleporting there, so the recorded tests navigate with this; ``open``
+        stays the deep link for everything else. Falls back to the route when
+        the sidebar is collapsed (it is on narrow viewports).
+        """
+        link = self.page.get_by_role("link", name=as_pattern(NAV_ACADEMIC_YEAR)).first
+        if link.count() == 0:
+            return self.open()
+        link.click()
+        self.expect_loaded()
+        return self
+
+    def expect_loaded(self) -> None:
+        expect(self.page.get_by_role("heading", name=HEADING)).to_be_visible(timeout=20_000)
+        # The heading renders before the module guard has answered; the tab
+        # buttons only exist once the screen itself is on.
+        expect(
+            self.page.get_by_role("button", name=as_pattern(YEARS_TAB)).first
+        ).to_be_visible(timeout=20_000)
+
+    def expect_nav_entry(self) -> None:
+        expect(
+            self.page.get_by_role("link", name=as_pattern(NAV_ACADEMIC_YEAR)).first
+        ).to_be_visible(timeout=20_000)
 
     # ───────────────────────── academic year ──────────────────────────
 
@@ -88,6 +136,38 @@ class AcademicYearTermPage(BasePage):
         self._row_action(row, ACTIVATE_ITEM)
         self.expect_toast(YEAR_ACTIVATED_TOAST, timeout_ms=15_000)
         expect(self.year_row(name).get_by_text(ACTIVE_BADGE).first).to_be_visible(timeout=15_000)
+
+    def rename_year(self, name: str, new_name: str) -> None:
+        """Rename an existing year through the row menu's "Edit".
+
+        Only the name is touched, deliberately. The Date Range control is an
+        antd RangePicker whose ``value`` prop is bound to React state, so it
+        re-renders the stored range over anything a half-finished gesture types
+        — re-dating it means committing *both* halves again, which is a
+        different (and much twitchier) interaction than this helper promises.
+
+        Renaming is still a full round-trip of the record: page.tsx's
+        ``updateAcademicYear`` PUTs name, is_active and both dates together, so
+        the caller can assert that the dates survived — and because the
+        ``is_active`` it resends is the year's own, renaming an inactive year
+        can never steal the school's current year.
+
+        The edit modal also hides the Active switch and the previous-year
+        picker (they are inside ``!yearForm.id``), so neither may be touched.
+        """
+        self.show_years()
+        row = self.year_row(name)
+        expect(row).to_be_visible(timeout=15_000)
+        self._row_action(row, EDIT_ITEM)
+
+        modal = self._modal(EDIT_YEAR_MODAL)
+        expect(modal).to_be_visible(timeout=10_000)
+        modal.get_by_label(NAME_FIELD).first.fill(new_name)
+
+        self._submit(modal, UPDATE_BUTTON)
+        self.expect_toast(YEAR_UPDATED_TOAST, timeout_ms=15_000)
+        expect(modal).to_be_hidden(timeout=10_000)
+        expect(self.year_row(new_name)).to_be_visible(timeout=15_000)
 
     def year_row(self, name: str) -> Locator:
         return self._row(name)
@@ -143,6 +223,29 @@ class AcademicYearTermPage(BasePage):
             self.term_row(year_name, term_name).get_by_text(ACTIVE_BADGE).first
         ).to_be_visible(timeout=15_000)
 
+    def rename_term(self, year_name: str, term_name: str, new_name: str) -> None:
+        """Rename a term through the row menu's "Edit".
+
+        Same shape, and the same deliberate limit, as :meth:`rename_year`. The
+        term's Academic Year select *is* rendered while editing (unlike the
+        year modal's extras), but it is left alone on purpose: the Academic
+        Terms table only lists terms of the school's *active* year, so moving a
+        term to another year would make its own row vanish.
+        """
+        self.show_terms()
+        row = self.term_row(year_name, term_name)
+        expect(row).to_be_visible(timeout=15_000)
+        self._row_action(row, EDIT_ITEM)
+
+        modal = self._modal(EDIT_TERM_MODAL)
+        expect(modal).to_be_visible(timeout=10_000)
+        modal.get_by_label(NAME_FIELD).first.fill(new_name)
+
+        self._submit(modal, UPDATE_BUTTON)
+        self.expect_toast(TERM_UPDATED_TOAST, timeout_ms=15_000)
+        expect(modal).to_be_hidden(timeout=10_000)
+        expect(self.term_row(year_name, new_name)).to_be_visible(timeout=15_000)
+
     def term_row(self, year_name: str, term_name: str) -> Locator:
         return self._row(term_name, year_name)
 
@@ -176,8 +279,8 @@ class AcademicYearTermPage(BasePage):
         if (switch.get_attribute("aria-checked") == "true") != on:
             switch.click()
 
-    def _submit(self, modal: Locator) -> None:
-        ok = modal.get_by_role("button", name=SUBMIT_BUTTON).first
+    def _submit(self, modal: Locator, button: re.Pattern[str] = SUBMIT_BUTTON) -> None:
+        ok = modal.get_by_role("button", name=button).first
         # antd keeps OK disabled until name + dates (+ year, for terms) are set,
         # so this doubles as the assertion that the form took every value.
         expect(ok).to_be_enabled(timeout=10_000)

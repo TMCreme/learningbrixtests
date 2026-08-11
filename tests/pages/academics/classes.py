@@ -50,7 +50,9 @@ LOAD_FAILURE_TITLE = re.compile(r"^\s*Failed to load classes\s*$", re.I)
 # "Showing <n> class(es)" — the count strip above the table, rendered only when
 # the list is non-empty.
 ROW_COUNT_SUMMARY = re.compile(r"Showing\s+(\d+)\s+class(es)?", re.I)
-# The one column header that is itself permission-gated.
+# The Actions column header. Deliberately NOT treated as permission-gated:
+# ClassList renders the <TableHead> unconditionally and gates only the cell
+# beneath it — see ``expect_read_only``.
 ACTIONS_COLUMN = re.compile(r"^\s*Actions\s*$", re.I)
 
 # Cell order of ClassList's table. The sixth column ("Actions") exists only for
@@ -249,7 +251,15 @@ class ClassesPage(BasePage):
         dialog = self.page.get_by_role("dialog").filter(
             has=self.page.get_by_role("heading", name=EDIT_CLASS_TITLE)
         ).first
-        expect(dialog).to_be_visible(timeout=15_000)
+        # Open/closed is asserted on the panel heading, NOT on the role=dialog
+        # element: this modal is a headlessui <Dialog className="relative z-100">
+        # whose children are every one of them `fixed`, so the dialog element
+        # itself has an empty bounding box and Playwright calls it hidden however
+        # open it is. The heading is what is really painted on screen. (The same
+        # trap, on this same modal, is documented in
+        # tests/pages/academics/subjects.py::_attach_to_class.)
+        title = dialog.get_by_role("heading", name=EDIT_CLASS_TITLE).first
+        expect(title).to_be_visible(timeout=15_000)
 
         if new_name is not None:
             dialog.get_by_placeholder(CLASS_NAME_FIELD).first.fill(new_name)
@@ -265,7 +275,10 @@ class ClassesPage(BasePage):
         save.click()
 
         self.expect_toast(CLASS_UPDATED_TOAST, timeout_ms=30_000)
-        expect(dialog).to_be_hidden(timeout=15_000)
+        # The Transition unmounts the whole dialog on close, so the heading
+        # disappearing is the modal closing — see the note above for why the
+        # role=dialog element is not what is asserted on.
+        expect(title).to_be_hidden(timeout=15_000)
         expect(self.find_row(new_name or class_name)).to_be_visible(timeout=20_000)
 
     def open_timetable(self, class_name: str) -> None:
@@ -350,16 +363,31 @@ class ClassesPage(BasePage):
         expect(self.page.get_by_text(NO_CLASSES_TITLE).first).to_be_visible(timeout=15_000)
         expect(self.page.get_by_text(NO_CLASSES_DESCRIPTION).first).to_be_visible()
 
-    def expect_read_only(self) -> None:
+    def expect_read_only(self, class_name: str | None = None) -> None:
         """Assert none of the "manage" controls is on the page.
 
-        Both the "Add Class" trigger and the per-row action menu are rendered
-        behind ``usePermission("classes_and_timetables", name === "manage")``, so
-        for a read-only role the register carries no writable control at all —
-        not even the Actions column header.
+        Two controls are gated on
+        ``usePermission("classes_and_timetables", name === "manage")``: the
+        "Add Class" trigger on page.tsx, and — in ClassList — the *contents* of
+        each row's Actions cell.
+
+        The Actions column **header** is not one of them. ClassList declares
+        ``<TableHead>Actions</TableHead>`` unconditionally and switches only the
+        cell: ``isManage ? <ClassActions/> : <ViewTimetableAction/>``. So a
+        read-only role still sees the column, and inside it a plain "View
+        Timetable" button — a read — where the "…" menu that edits, deletes and
+        re-staffs the class would otherwise be. Asserting the header away would
+        fail on a correct app.
+
+        Passing ``class_name`` makes the check specific: that row must expose
+        exactly one control, and it must be the read.
         """
         expect(self.page.get_by_role("button", name=ADD_CLASS_TRIGGER)).to_have_count(0)
-        expect(self.page.get_by_role("columnheader", name=ACTIONS_COLUMN)).to_have_count(0)
+        if class_name is None:
+            return
+        buttons = self.find_row(class_name).get_by_role("button")
+        expect(buttons).to_have_count(1)
+        expect(buttons.first).to_have_text(VIEW_TIMETABLE_ITEM)
 
     def find_row(self, name: str) -> Locator:
         """Row in the Classes table.

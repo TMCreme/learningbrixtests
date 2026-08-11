@@ -102,10 +102,20 @@ COMMENTS_HEADING = re.compile(r"^\s*Comments\b", re.I)
 COMMENT_FIELD = re.compile(r"Write a comment", re.I)
 COMMENT_SUBMIT = re.compile(r"^\s*(Comment|Posting)", re.I)
 COMMENT_ADDED_TOAST = re.compile(r"^\s*Comment added\s*$", re.I)
-EDIT_ITEM = re.compile(r"^\s*Edit\s*$", re.I)
-SAVE_EDIT_BUTTON = re.compile(r"^\s*Sav(e|ing)", re.I)
-COMMENT_UPDATED_TOAST = re.compile(r"^\s*Comment updated\s*$", re.I)
-EDITED_MARKER = re.compile(r"·\s*edited", re.I)
+# The comment "⋯" menu offers Edit and Delete. Only Delete is driven here, and
+# deliberately so: "Edit" calls ``updateComment`` →
+# ``PUT /feed/comments/{id}`` (src/lib/handlers/feedCommentHandler.ts), a route
+# ``newschoolapp/api/routes/feed.py`` does not declare — it exposes POST, DELETE
+# and the two reaction verbs on a comment, and nothing that rewrites one.
+# Community posts and comments are immutable BY DESIGN, so the frontend's edit
+# affordance is the dead end, not the backend, and no page object here may drive
+# it: a test that did would be asserting a capability the product does not have.
+# Moderation — taking a comment back down — is the manage action that exists.
+DELETE_ITEM = re.compile(r"^\s*Delete\s*$", re.I)
+COMMENT_DELETED_TOAST = re.compile(r"^\s*Comment deleted\s*$", re.I)
+# Anchored so it cannot also match the comment's reaction verbs, which hang off
+# the same prefix (``/feed/comments/{id}/reactions``).
+DELETE_COMMENT_ENDPOINT = re.compile(r"/feed/comments/\d+(?:\?|$)")
 
 
 class CommunityPage(BasePage):
@@ -353,13 +363,11 @@ class PostDetailPage(BasePage):
         self.page.get_by_role("button", name=as_pattern(COMMENT_SUBMIT)).first.click()
         self.expect_toast(COMMENT_ADDED_TOAST, timeout_ms=20_000)
 
-    def expect_comment(self, text: str, *, edited: bool = False) -> None:
+    def expect_comment(self, text: str) -> None:
         thread = self.page.get_by_role("main")
         expect(
             thread.get_by_text(as_pattern(re.escape(text))).first
         ).to_be_visible(timeout=25_000)
-        if edited:
-            expect(thread.get_by_text(as_pattern(EDITED_MARKER)).first).to_be_visible()
 
     def expect_author(self, name: str) -> None:
         """The post is attributed to ``name``.
@@ -385,27 +393,40 @@ class PostDetailPage(BasePage):
             self.page.get_by_role("main").get_by_text(as_pattern(re.escape(text)))
         ).to_have_count(0)
 
-    def edit_comment(self, new_text: str) -> None:
-        """Rewrite the only comment on the page through its "⋯ → Edit" menu.
+    def delete_comment(self) -> None:
+        """Take the only comment on the page back down via its "⋯ → Delete" menu.
 
-        The edit box is the *last* textbox in the thread column: the composer
-        stays mounted above it, and the inline editor carries no placeholder of
-        its own to match on. Only the comment's own author is offered the menu
-        (``isAuthor``), so a trigger found here is provably on this user's
-        comment.
+        Only the comment's own author is offered the menu (``isAuthor``), and the
+        thread column holds no other ``DropdownMenu``, so the single trigger
+        asserted here is provably on this user's comment.
+
+        The removal is asserted on ``DELETE /feed/comments/{id}`` answering 204
+        rather than on the toast alone, because ``handleDeleteComment`` drops the
+        comment from local state and decrements ``comments_count`` itself — so
+        the screen would empty even if the server had refused. The caller then
+        reloads the thread from ``GET /feed/posts/{id}`` to confirm it stayed
+        gone.
+
+        Deliberately the only write this menu drives; see ``DELETE_ITEM`` above
+        for why "Edit" is left alone.
         """
         thread = self.page.get_by_role("main")
         triggers = thread.locator(MENU_TRIGGER)
         expect(triggers).to_have_count(1, timeout=25_000)
         triggers.first.click()
-        self.page.get_by_role("menuitem", name=as_pattern(EDIT_ITEM)).click()
 
-        editor = thread.get_by_role("textbox").last
-        expect(editor).to_be_visible(timeout=15_000)
-        editor.fill(new_text)
+        item = self.page.get_by_role("menuitem", name=as_pattern(DELETE_ITEM)).first
+        expect(item).to_be_enabled(timeout=15_000)
+        with self.page.expect_response(_is_delete_comment_response, timeout=45_000) as info:
+            item.click()
+        response = info.value
+        if response.status != 204:
+            raise AssertionError(
+                f"DELETE {response.url} answered {response.status}, not 204: "
+                f"{response.text()[:300]}"
+            )
 
-        self.page.get_by_role("button", name=as_pattern(SAVE_EDIT_BUTTON)).first.click()
-        self.expect_toast(COMMENT_UPDATED_TOAST, timeout_ms=20_000)
+        self.expect_toast(COMMENT_DELETED_TOAST, timeout_ms=20_000)
 
     def back_to_feed(self) -> CommunityPage:
         self.page.get_by_role("button", name=as_pattern(BACK_BUTTON)).first.click()
@@ -413,6 +434,13 @@ class PostDetailPage(BasePage):
         feed = CommunityPage(self.page, self.frontend_base_url)
         feed.expect_loaded()
         return feed
+
+
+def _is_delete_comment_response(response: Response) -> bool:
+    return (
+        response.request.method == "DELETE"
+        and DELETE_COMMENT_ENDPOINT.search(response.url) is not None
+    )
 
 
 def _is_create_post_response(response: Response) -> bool:

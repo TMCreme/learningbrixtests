@@ -49,6 +49,13 @@ BLOCKERS_PATH = ROOT / "state" / "blockers.md"
 STATUSES = ("pending", "claimed", "test_written", "passing", "video_done", "blocked")
 MAX_ATTEMPTS = 3
 
+# Copied from config/features.yaml onto every entry, and refreshed on re-init so
+# a regenerated queue updates them without discarding progress.
+DESCRIPTIVE_FIELDS = (
+    "module", "route", "intent", "title", "subtitle", "roles", "scenario",
+    "test_path", "video",
+)
+
 
 def is_finished(entry: dict) -> bool:
     """Whether this unit needs no further work.
@@ -123,14 +130,18 @@ def cmd_init(args) -> int:
                 # Keep progress; refresh the descriptive fields in case the
                 # queue definition changed.
                 entries[fid].update({
-                    k: spec.get(k) for k in
-                    ("module", "title", "subtitle", "roles", "scenario",
-                     "test_path", "video")
+                    k: spec.get(k) for k in DESCRIPTIVE_FIELDS
                 })
                 continue
             entries[fid] = {
                 "id": fid,
                 "module": spec.get("module"),
+                # `route` and `intent` are read straight off the claimed unit by
+                # the workflow's write prompt. They were missing from this dict,
+                # so every prompt said "intent: undefined" and each agent had to
+                # infer the unit's purpose from its id suffix.
+                "route": spec.get("route"),
+                "intent": spec.get("intent"),
                 "title": spec.get("title"),
                 "subtitle": spec.get("subtitle"),
                 "roles": spec.get("roles", []),
@@ -147,8 +158,18 @@ def cmd_init(args) -> int:
                 "updated": now(),
             }
             added += 1
+
+        # Drop units the queue no longer defines. Without this, renaming a unit
+        # leaves the old row behind forever — counted in `total`, never
+        # claimable, so the run can never reach complete.
+        defined = {spec["id"] for spec in defs}
+        pruned = [fid for fid in entries if fid not in defined]
+        for fid in pruned:
+            del entries[fid]
+
         data["updated"] = now()
-    print(f"ledger: {len(defs)} features defined, {added} newly seeded → {LEDGER_PATH}")
+    print(f"ledger: {len(defs)} features defined, {added} newly seeded, "
+          f"{len(pruned)} pruned → {LEDGER_PATH}")
     return 0
 
 

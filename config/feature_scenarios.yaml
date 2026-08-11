@@ -120,13 +120,28 @@ scenarios:
       - incidents
       - change_requests
 
-  # ── 5. Floor case. Proves the app degrades gracefully to near-nothing. ─────
-  #    Every gatable module except configuration + the admin dashboard is OFF,
-  #    which is what supplies the negative path for home, dashboard, students,
-  #    staff, access_roles and academic_year_and_term.
+  # ── 5. Floor case. The most restricted pack the product can actually make. ─
+  #    NOT an empty pack: the feature-pack builder locks the "people" and
+  #    "governance" groups into every pack (BASIC_GROUPS in
+  #    smsfrontend/src/app/module/feature_flag/{create,edit}/page.tsx), with only
+  #    guardians and families optional inside them. Governance being core and
+  #    always on is intended product behaviour, confirmed 2026-08-09.
+  #
+  #    So these nine modules are listed because the app WILL license them
+  #    whatever this file says. Declaring only two made the scenario a fiction
+  #    and put eight units in the queue asserting a denial that can never
+  #    happen; those are now `always_licensed` units instead, and this scenario
+  #    is what they run against.
   - id: minimal
     school_name: "TEST Bare Bones School"
     feature_pack_name: "TEST Minimal Pack"
     modules:
-      - school_configuration
+      - home
+      - dashboard
+      - students
+      - staff
       - school_admin_dashboard
+      - school_configuration
+      - access_roles
+      - audit_trails
+      - academic_year_and_term

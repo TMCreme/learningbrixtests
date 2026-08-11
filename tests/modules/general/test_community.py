@@ -2,7 +2,7 @@
 
 Manage path: the SchoolAdmin of the ``library_and_community`` school opens the
 branch's Community feed, publishes an announcement to the whole school, opens it
-in full, comments on it and then corrects that comment
+in full, comments on it and then takes that comment back down
 (``test_school_admin_publishes_and_manages_a_community_post``).
 
 View path: a pupil of the same school signs in, opens Community from the General
@@ -36,6 +36,16 @@ here so the next unit does not re-derive them:
   owner/admin membership. So publishing to the whole school is this role's
   privilege, which is why the manage unit belongs to it.
 
+* **Nothing on this feed can be rewritten, and that is deliberate.** The comment
+  "⋯" menu offers Edit, and it calls ``PUT /feed/comments/{id}``
+  (``src/lib/handlers/feedCommentHandler.ts``) — a route
+  ``newschoolapp/api/routes/feed.py`` does not declare and must not gain. Posts
+  and comments here are immutable by design, like a tweet; the frontend's edit
+  affordance is the dead end. So the "edit" half of this unit's manage intent is
+  moderation: the administrator deletes the comment
+  (``DELETE /feed/comments/{id}``, which the backend does implement) rather than
+  rewriting it. Do not "fix" this by adding the update route.
+
 * **The group the post is addressed to is the auto-seeded one.**
   ``api/routes/school.py`` calls ``ensure_school_community_group`` when the
   school is created, giving every school exactly one system group named
@@ -50,9 +60,10 @@ What the walkthrough proves
     ``POST /feed/posts`` response, and the detail page is then read back from
     ``GET /feed/posts/{id}`` — a separate request, on a separate route, that only
     answers with the content, the author and the comment count the server
-    actually stored. The comment edit is asserted the same way: on the "· edited"
-    marker, which the page derives from ``date_created !== last_modified``, so a
-    save the UI announced but never persisted cannot pass.
+    actually stored. The removal is asserted the same way: the delete is held to
+    a 204 rather than to its toast, and the thread is then re-opened from the
+    feed so the empty count comes from the server, not from the local state
+    ``handleDeleteComment`` trimmed on its own.
 """
 from __future__ import annotations
 
@@ -95,10 +106,11 @@ COMMUNITY_MODULE = "community"
 
 MANAGE_SCENARIO = "library_and_community"
 
-# Unique per execution, not merely per run: the whole batch shares one
-# provisioned school, so a rerun in the same process must not leave two posts
-# the feed search cannot tell apart. Carries the "TEST" prefix the orphan
-# sweeper matches on.
+# Distinct from every other post in this school's feed. ``run_tag`` alone is not
+# enough: the whole batch shares one provisioned school, so the view path's
+# notice below carries the same tag and the searches would collide. The uuid is
+# drawn once per process, which is once per selection of this test. Carries the
+# "TEST" prefix the orphan sweeper matches on.
 _STAMP = f"{run_tag()}-{uuid.uuid4().hex[:4]}"
 
 POST_CONTENT = (
@@ -106,10 +118,6 @@ POST_CONTENT = (
     f"week and every class gets a slot with the librarian."
 )
 COMMENT_TEXT = f"TEST Slot times go up on the noticeboard tomorrow {_STAMP}."
-CORRECTED_COMMENT = (
-    f"TEST Slot times go up on the noticeboard this afternoon {_STAMP}, not "
-    f"tomorrow."
-)
 
 
 @pytest.mark.school_admin
@@ -167,9 +175,11 @@ def test_school_admin_publishes_and_manages_a_community_post(
         post_id = community.publish()
 
     with demo.step("It is now in the feed, under the administrator's name"):
-        # The feed refetched on publish; searching narrows it to this one post,
-        # which is also what makes the card's unnamed "⋯" menu unambiguous.
-        community.search(POST_CONTENT[:40])
+        # The feed refetched on publish; searching by the stamp narrows it to
+        # this one post, which is also what makes the card's unnamed "⋯" menu
+        # unambiguous. The stamp, not a prefix of the sentence: this school's
+        # feed also carries the view path's notice, and both open "TEST …".
+        community.search(_STAMP)
         community.expect_post(POST_CONTENT, author=admin_name)
         community.expect_no_load_failure()
 
@@ -183,12 +193,28 @@ def test_school_admin_publishes_and_manages_a_community_post(
         detail.expect_comment(COMMENT_TEXT)
         detail.expect_comment_count(1)
 
-    with demo.step("Correct it — a comment stays editable after it is posted",
-                   dwell_ms=1500):
-        detail.edit_comment(CORRECTED_COMMENT)
-        detail.expect_comment(CORRECTED_COMMENT, edited=True)
+    with demo.step("Take the note back down again — moderating the thread is "
+                   "the administrator's job"):
+        # Deliberately delete rather than rewrite. The "⋯" menu also offers Edit,
+        # but it calls PUT /feed/comments/{id}, which the backend does not
+        # implement and is not meant to: posts and comments on this feed are
+        # immutable by design. Removal is the correction this product supports,
+        # and the page object asserts the 204 rather than the toast.
+        detail.delete_comment()
         detail.expect_comment_absent(COMMENT_TEXT)
-        detail.expect_comment_count(1)
+
+    with demo.step("Back to the feed — the announcement stands, its thread now "
+                   "clear", dwell_ms=1500):
+        # Re-read rather than trust the screen: handleDeleteComment empties the
+        # thread from local state, so only a fresh GET /feed/posts/{id} proves
+        # the comment is gone from the server as well.
+        feed = detail.back_to_feed()
+        feed.search(_STAMP)
+        feed.expect_post(POST_CONTENT, author=admin_name)
+        reopened = feed.open_post_details()
+        reopened.expect_loaded(post_id=post_id, content=POST_CONTENT)
+        reopened.expect_comment_count(0)
+        reopened.expect_comment_absent(COMMENT_TEXT)
 
 
 # ─────────── negative path: the plan does not include the community ──────────

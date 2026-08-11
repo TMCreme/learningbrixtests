@@ -353,7 +353,10 @@ Write the Playwright test for ONE feature unit.
   route:     /module/${unit.route || unit.module}
   intent:    ${unit.intent}        (manage = create/edit happy path,
                                     view = read-only happy path,
-                                    negative = module disabled, expect denial)
+                                    negative = module disabled, expect denial,
+                                    mandatory = module can NEVER be unlicensed,
+                                      assert it is still reachable on the
+                                      "minimal" pack — see step 4)
   roles:     ${(unit.roles || []).join(', ')}
   scenario:  ${unit.scenario}      (the feature-pack mix this runs against)
   file:      ${unit.test_path}
@@ -370,8 +373,19 @@ Steps:
      ${FRONTEND}/src/app/module/${unit.route || unit.module}/
      Get the REAL button labels, form labels and toast text. Quote them with
      re.compile(..., re.I).
-2. Add the test to ${unit.test_path} (create the file and any __init__.py if
-   missing). If the file already has tests, ADD to it — never rewrite it.
+2. FIRST check whether this unit's test already exists. A run can be
+   interrupted (session limit, crash) after the test was written but before it
+   was verified, so the unit comes back round with its file already on disk.
+   Look in ${unit.test_path} for a test matching THIS unit${unit.video ? ` —
+   its @pytest.mark.demo would carry feature_id="${unit.id}"` : ` (its intent
+   and role)`}.
+   - If it exists: do NOT write a second one. Review it against the guidance
+     below, repair anything wrong, and report its path and name.
+   - If it does not: add it to ${unit.test_path} (create the file and any
+     __init__.py if missing). If the file already holds tests for OTHER units,
+     ADD to it — never rewrite it.
+   Two tests for one unit is a defect: they duplicate a provisioning-heavy run
+   and the second video silently overwrites the first.
 3. MANDATORY: mark the test @pytest.mark.scenario("${unit.scenario}").
    provisioned_school is parametrised over every scenario, and each param costs
    a full UI provisioning walkthrough. The marker deselects the rest, so the
@@ -380,6 +394,16 @@ Steps:
 4. For intent=negative, assert the denial the app actually implements: the
    sidebar entry is absent, OR direct navigation redirects to a no-access page,
    OR the API returns 403. Check which one is true before asserting.
+
+   For intent=mandatory, assert the OPPOSITE, and do not treat reachability as a
+   licensing hole. The pack builder locks the "people" and "governance" groups
+   into every pack (BASIC_GROUPS in
+   ${FRONTEND}/src/app/module/feature_flag/{create,edit}/page.tsx) — only
+   guardians and families are optional inside them. Governance is core and
+   always on: CONFIRMED INTENDED by the user, not a gap. So the test proves the
+   module is still reachable on the "minimal" pack — the module loads, its
+   sidebar entry is offered, its API answers — and that is the whole assertion.
+   Do NOT add or tighten any gate here.
 ${unit.video ? `5. This unit records video, so the test MUST take the \`demo\` fixture and
    carry the marker:
 

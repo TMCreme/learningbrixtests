@@ -72,7 +72,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, expect
 
 from tests.fixtures.api_client import BackendAPI
 from tests.fixtures.data_factories import run_tag
@@ -301,6 +301,11 @@ MANAGE_SCENARIO = "academics_only"
 # "Academics Module" group.
 NAV_CLASSES_AND_TIMETABLES = re.compile(r"^\s*Classes & Timetables\s*$", re.I)
 
+# Any /module/* route the pack licenses will do — all this needs is a page that
+# mounts module/layout.tsx, which is what renders SideNavigation. `home` is on
+# every scenario's pack, including this one.
+HOME_ROUTE = "home"
+
 NEW_CLASS_DESCRIPTION = (
     "Upper primary stream opened for the new intake."
 )
@@ -359,17 +364,38 @@ def test_school_admin_creates_and_manages_a_class(
         BranchesPage(page, base_url).select_branch(branch_name)
 
     with demo.step("Open Classes & Timetables from the Academics menu"):
-        link = page.get_by_role("link", name=NAV_CLASSES_AND_TIMETABLES).first
-        if link.count():
+        # Home first, and not as decoration: ``select_branch`` ends on
+        # /module/community — that destination is hardcoded in
+        # school_admin_dashboard/page.tsx and takes no account of the plan — and
+        # this school's pack has no `community`, so that page's own 403 becomes a
+        # hard redirect to /auth/no-access. Only /module/* is wrapped in the
+        # layout that renders SideNavigation, so on /auth/no-access there is no
+        # menu to click at all. Coming back to home is what lets this step reach
+        # the module the way a real user reaches it, rather than by deep link.
+        goto_module(page, base_url, HOME_ROUTE)
+
+        # Scoped to the sidebar on purpose: home's own QuickActions panel carries
+        # a "Classes & Timetables" tile with the same words. It is a <button>
+        # with an onNavigate the page never passes, so it goes nowhere — matching
+        # it instead of the menu entry would produce a step that clicks and
+        # silently stays put.
+        nav = page.get_by_role("navigation")
+        link = nav.get_by_role("link", name=as_pattern(NAV_CLASSES_AND_TIMETABLES)).first
+        # The sidebar paints a bare placeholder until the school's module list
+        # has loaded, so the entry is not on screen the instant the page is —
+        # ``count()`` on its own would race and silently take the fallback.
+        try:
+            link.wait_for(state="visible", timeout=20_000)
+        except PlaywrightTimeoutError:
+            # Narrow viewports drop the desktop sidebar entirely (module/layout
+            # hides it under `md`). The workspace is the point, not the way in.
+            classes.open()
+        else:
             link.click()
             page.wait_for_url(re.compile(rf"/module/{CLASSES_ROUTE}"), timeout=20_000)
             expect(page.get_by_role("heading", name=as_pattern(PAGE_HEADING))).to_be_visible(
                 timeout=20_000
             )
-        else:
-            # The sidebar collapses on narrow viewports; the workspace is the
-            # point, not the way in.
-            classes.open()
         classes.expect_no_load_failure()
 
     with demo.step(f"Open a new class for the {ctx.academic_year or 'current'} year"):
@@ -401,8 +427,16 @@ def test_school_admin_creates_and_manages_a_class(
         )
         if subject_name:
             expect(classes.cell(renamed_class, "subjects")).to_have_text(subject_name)
-        # The class it was renamed *from* is gone, not duplicated.
-        expect(page.get_by_text(as_pattern(re.escape(class_name)))).to_have_count(0)
+        # The class it was renamed *from* is gone from the register, not
+        # duplicated. Asserted on the table's rows rather than on the page's
+        # text: page.tsx renders the "Add Class Teacher" step as an antd
+        # <Modal title={`Assign Teacher to ${selectedClass?.name}`}>, and antd
+        # leaves a closed modal mounted, so the pre-rename name survives in that
+        # hidden title for as long as `selectedClass` is set. It is off screen
+        # and refreshed the next time the modal is opened (handleOpenAddTeacher
+        # Modal re-reads the class by id), so it is not a defect — but a
+        # whole-page text search finds it.
+        expect(classes.find_row(class_name)).to_have_count(0)
         classes.expect_no_load_failure()
 
     with demo.step("Open the new class's weekly timetable", dwell_ms=1500):
@@ -709,17 +743,25 @@ def test_teacher_views_classes_and_timetables(
         login_as(page, base_url, ctx.teacher)
 
     with demo.step("Open Classes & Timetables from the Academics menu"):
-        link = page.get_by_role("link", name=TEACHER_NAV_CLASSES).first
-        if link.count():
+        # Scoped to the sidebar, and waited for rather than counted. SideNavigation
+        # paints its sections only once the school's module list has resolved, so
+        # the entry is not on screen the instant the post-login page is — a bare
+        # ``count()`` here would race, silently take the deep-link fallback, and
+        # record a video in which nobody ever opens the menu.
+        nav = page.get_by_role("navigation")
+        link = nav.get_by_role("link", name=as_pattern(TEACHER_NAV_CLASSES)).first
+        try:
+            link.wait_for(state="visible", timeout=20_000)
+        except PlaywrightTimeoutError:
+            # Narrow viewports drop the desktop sidebar entirely (module/layout
+            # hides it under `md`). The register is the point, not the way in.
+            classes.open()
+        else:
             link.click()
             page.wait_for_url(re.compile(rf"/module/{CLASSES_ROUTE}"), timeout=20_000)
             expect(page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(
                 timeout=20_000
             )
-        else:
-            # The sidebar collapses on narrow viewports; the route is the point,
-            # not the way in.
-            classes.open()
         classes.expect_no_load_failure()
 
     with demo.step(f"The register opens on the classes they teach — starting with {CLASS_NAME}"):
@@ -757,7 +799,9 @@ def test_teacher_views_classes_and_timetables(
         ).to_be_visible()
 
     with demo.step("Nothing on this screen is theirs to change — the register is read-only"):
-        classes.expect_read_only()
+        # The Actions column is still there; what a teacher gets inside it is the
+        # read ("View Timetable"), never the menu that edits or deletes.
+        classes.expect_read_only(CLASS_NAME)
 
     with demo.step("Behind the screen, every write to a class is refused for them too"):
         _expect_class_writes_refused_for_teacher(api, ctx)

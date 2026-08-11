@@ -16,7 +16,7 @@ features:
   roles:
   - school_admin
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_home.py
   video: true
 - id: people.home.view.teacher
@@ -27,7 +27,7 @@ features:
   roles:
   - teacher
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_home.py
   video: true
 - id: people.home.view.student
@@ -38,17 +38,17 @@ features:
   roles:
   - student
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_home.py
   video: true
-- id: people.home.denied
+- id: people.home.always_licensed
   module: home
   route: home
   title: Home
-  subtitle: Home is hidden when the feature pack excludes it
+  subtitle: Home stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/people/test_home.py
   video: false
@@ -60,7 +60,7 @@ features:
   roles:
   - school_admin
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_dashboard.py
   video: true
 - id: people.dashboard.view.teacher
@@ -71,17 +71,17 @@ features:
   roles:
   - teacher
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_dashboard.py
   video: true
-- id: people.dashboard.denied
+- id: people.dashboard.always_licensed
   module: dashboard
   route: dashboard
   title: Dashboard
-  subtitle: Dashboard is hidden when the feature pack excludes it
+  subtitle: Dashboard stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/people/test_dashboard.py
   video: false
@@ -93,7 +93,7 @@ features:
   roles:
   - school_admin
   intent: manage
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_students.py
   video: true
 - id: people.students.view.teacher
@@ -104,7 +104,7 @@ features:
   roles:
   - teacher
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_students.py
   video: true
 - id: people.students.view.guardian
@@ -115,17 +115,17 @@ features:
   roles:
   - guardian
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_students.py
   video: true
-- id: people.students.denied
+- id: people.students.always_licensed
   module: students
   route: students
   title: Students
-  subtitle: Students is hidden when the feature pack excludes it
+  subtitle: Students stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/people/test_students.py
   video: false
@@ -137,17 +137,17 @@ features:
   roles:
   - school_admin
   intent: manage
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/people/test_staff.py
   video: true
-- id: people.staff.denied
+- id: people.staff.always_licensed
   module: staff
   route: staff
   title: Staff
-  subtitle: Staff is hidden when the feature pack excludes it
+  subtitle: Staff stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/people/test_staff.py
   video: false
@@ -791,7 +791,7 @@ features:
   video: false
 - id: change_requests.change_requests.manage.school_admin
   module: change_requests
-  route: null
+  route: pending_requests
   title: Change Requests
   subtitle: SchoolAdmin creates and manages change requests
   roles:
@@ -802,7 +802,7 @@ features:
   video: true
 - id: change_requests.change_requests.view.teacher
   module: change_requests
-  route: null
+  route: pending_requests
   title: Change Requests
   subtitle: Teacher views change requests
   roles:
@@ -813,7 +813,7 @@ features:
   video: true
 - id: change_requests.change_requests.denied
   module: change_requests
-  route: null
+  route: pending_requests
   title: Change Requests
   subtitle: Change Requests is hidden when the feature pack excludes it
   roles:
@@ -866,15 +866,15 @@ features:
   scenario: minimal
   test_path: tests/modules/governance/test_school_admin_dashboard.py
   video: true
-- id: governance.school_admin_dashboard.denied
+- id: governance.school_admin_dashboard.always_licensed
   module: school_admin_dashboard
   route: school_admin_dashboard
   title: School Admin Dashboard
-  subtitle: School Admin Dashboard is hidden when the feature pack excludes it
+  subtitle: School Admin Dashboard stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
-  scenario: academics_only
+  intent: mandatory
+  scenario: minimal
   test_path: tests/modules/governance/test_school_admin_dashboard.py
   video: false
 - id: governance.school_configuration.manage.school_admin
@@ -888,6 +888,17 @@ features:
   scenario: minimal
   test_path: tests/modules/governance/test_school_configuration.py
   video: true
+- id: governance.school_configuration.always_licensed
+  module: school_configuration
+  route: config
+  title: School Configuration
+  subtitle: School Configuration stays available on the most restricted feature pack
+  roles:
+  - school_admin
+  intent: mandatory
+  scenario: minimal
+  test_path: tests/modules/governance/test_school_configuration.py
+  video: false
 - id: governance.access_roles.manage.school_admin
   module: access_roles
   route: access_roles
@@ -896,17 +907,17 @@ features:
   roles:
   - school_admin
   intent: manage
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/governance/test_access_roles.py
   video: true
-- id: governance.access_roles.denied
+- id: governance.access_roles.always_licensed
   module: access_roles
   route: access_roles
   title: Access & Roles
-  subtitle: Access & Roles is hidden when the feature pack excludes it
+  subtitle: Access & Roles stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/governance/test_access_roles.py
   video: false
@@ -918,17 +929,17 @@ features:
   roles:
   - school_admin
   intent: view
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/governance/test_audit_trails.py
   video: true
-- id: governance.audit_trails.denied
+- id: governance.audit_trails.always_licensed
   module: audit_trails
   route: audit_trails
   title: Audit Trails
-  subtitle: Audit Trails is hidden when the feature pack excludes it
+  subtitle: Audit Trails stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/governance/test_audit_trails.py
   video: false
@@ -940,17 +951,17 @@ features:
   roles:
   - school_admin
   intent: manage
-  scenario: finance_only
+  scenario: minimal
   test_path: tests/modules/governance/test_academic_year_and_term.py
   video: true
-- id: governance.academic_year_and_term.denied
+- id: governance.academic_year_and_term.always_licensed
   module: academic_year_and_term
   route: academic_year_and_term
   title: Academic Year & Term
-  subtitle: Academic Year & Term is hidden when the feature pack excludes it
+  subtitle: Academic Year & Term stays available on the most restricted feature pack
   roles:
   - school_admin
-  intent: negative
+  intent: mandatory
   scenario: minimal
   test_path: tests/modules/governance/test_academic_year_and_term.py
   video: false

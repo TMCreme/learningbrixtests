@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from config.module_catalog import KNOWN_MODULES
+from config.module_catalog import KNOWN_MODULES, MANDATORY_MODULES
 
 
 REQUIRED_PER_SCENARIO = frozenset({"school_configuration"})
@@ -97,8 +97,11 @@ def coverage_warnings(scenarios: tuple[Scenario, ...]) -> list[str]:
         union |= set(s.modules)
 
     never_on = sorted(KNOWN_MODULES - union)
+    # MANDATORY_MODULES are excluded on purpose: the product locks them into
+    # every pack, so "never negatively tested" is the correct state for them,
+    # not a gap in scenario design.
     never_off = sorted(
-        m for m in KNOWN_MODULES
+        m for m in KNOWN_MODULES - MANDATORY_MODULES
         if all(m in s.modules for s in scenarios)
     )
 

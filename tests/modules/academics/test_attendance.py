@@ -11,8 +11,9 @@ Guardian role holds no attendance permission at all
 above that test for why the app has no guardian-facing attendance view to walk
 through, and which three surfaces the denial is asserted on.
 
-Negative path: a SchoolAdmin of a school whose feature pack does NOT include
-``attendance``.
+Negative path: a SchoolAdmin of the ``minimal`` school, whose feature pack does
+NOT include ``attendance``
+(``test_attendance_denied_for_school_admin_when_module_disabled``).
 
 Where the denial actually lives
     Not in the router, and not in the sidebar. Both frontend guards
@@ -29,11 +30,14 @@ Where the denial actually lives
     **403 "Feature not available in your plan"**. That 403 is the assertion this
     test is built on.
 
-    The UI consequence follows from it: the page mounts, its initial fetches are
-    refused, and it renders ``PageError`` ("Failed to load attendance data")
-    instead of the register — no heading, no "View All Attendance", no table.
-    Both are asserted, so a regression that silently starts serving attendance
-    to an unlicensed school fails here.
+    The UI consequence follows from it: the page mounts and every fetch it makes
+    is refused. Which panel that leaves on screen depends on *which* fetch failed
+    first — ``page.tsx`` routes a 403 from ``fetchData`` to ``classAccessDenied``
+    (the in-page ``NoClassAccess`` panel) but a failure in ``initData`` to
+    ``fetchError`` (the full-screen ``PageError``). The test accepts either, plus
+    a redirect, and asserts on what holds in all three: no register rows, no
+    "View All Attendance", no "Export Data". So a regression that silently starts
+    serving attendance to an unlicensed school fails here.
 """
 from __future__ import annotations
 
@@ -75,12 +79,27 @@ VIEW_ALL_BUTTON = re.compile(r"View All Attendance", re.I)
 EXPORT_BUTTON = re.compile(r"Export Data", re.I)
 # src/components/common/PageError.tsx, mounted with this exact title.
 LOAD_FAILURE_TITLE = re.compile(r"Failed to load attendance data", re.I)
+# components/NoClassAccess.tsx — the in-page panel the register swaps its table
+# for when the /attendance reads come back 403. page.tsx catches that status
+# specially (``setClassAccessDenied(true)``) instead of routing it to fetchError,
+# so it is a *different* surface from the PageError panel above, not a variant.
+NO_ACCESS_PANEL = re.compile(
+    r"No Attendance Access|No Class Assigned to You", re.I
+)
 # Where the frontend sends a user it has decided is not allowed in.
 DENIAL_URL = re.compile(r"/auth/no-access|/unauthorized")
+
+# The floor pack. ``minimal`` is the only scenario that both omits `attendance`
+# and is a pack the product can really build (config/feature_scenarios.yaml), so
+# it is the one school this denial is worth provisioning against — the marker
+# deselects the other four `provisioned_school` params rather than walking each
+# of them through a full UI provisioning run to reach a skip.
+DENIED_SCENARIO = "minimal"
 
 
 @pytest.mark.negative
 @pytest.mark.school_admin
+@pytest.mark.scenario(DENIED_SCENARIO)
 def test_attendance_denied_for_school_admin_when_module_disabled(
     provisioned_school: SchoolContext,
     page: Page,
@@ -89,11 +108,12 @@ def test_attendance_denied_for_school_admin_when_module_disabled(
 ) -> None:
     """With `attendance` off the pack, a SchoolAdmin gets no register and no data."""
     ctx = provisioned_school
-    if ATTENDANCE_MODULE in ctx.feature_modules:
-        pytest.skip(
-            f"scenario {ctx.scenario_id!r} enables {ATTENDANCE_MODULE!r}; "
-            f"the denial path only applies when the feature pack omits it"
-        )
+    assert ATTENDANCE_MODULE not in ctx.feature_modules, (
+        f"scenario {ctx.scenario_id!r} licenses {ATTENDANCE_MODULE!r}, so there is "
+        f"no denial here to assert. This unit is pinned to {DENIED_SCENARIO!r}; if "
+        f"that pack has gained the module, the unit needs a different scenario "
+        f"rather than a silent skip"
+    )
 
     # ── the denial itself: every attendance route is refused ──────────────────
     token = api.login(ctx.school_admin.email, ctx.school_admin.password)["access_token"]
@@ -132,41 +152,68 @@ def test_attendance_denied_for_school_admin_when_module_disabled(
     login_as(page, frontend_base_url, ctx.school_admin)
     goto_module(page, frontend_base_url, ATTENDANCE_ROUTE)
 
-    # A SchoolAdmin is exempt from the frontend's own module gate, so the page
-    # is expected to mount and fail its fetches rather than redirect. Accept the
+    # A SchoolAdmin is exempt from the frontend's own module gate, so the page is
+    # expected to mount and fail its fetches rather than redirect. Accept the
     # redirect too — it is the stronger denial, not a weaker one.
-    redirected = _wait_for_denial(page)
+    surface = _wait_for_denial(page)
 
-    expect(page.get_by_text(as_pattern(REGISTER_HEADING))).to_have_count(0)
+    # True on every surface: no register data, and none of the controls that act
+    # on it. Both buttons are rendered behind ``!classAccessDenied``, so they are
+    # gone in the in-page panel case as well as the other two.
     expect(page.get_by_role("button", name=as_pattern(VIEW_ALL_BUTTON))).to_have_count(0)
     expect(page.get_by_role("button", name=as_pattern(EXPORT_BUTTON))).to_have_count(0)
     expect(page.get_by_role("row")).to_have_count(0)
 
-    if not redirected:
-        expect(page.get_by_text(as_pattern(LOAD_FAILURE_TITLE))).to_be_visible()
+    if surface == "no_access_panel":
+        # The page chrome (its <h1>) still renders here — the denial is the panel
+        # that replaced AttendanceTable, so that is what gets asserted.
+        expect(page.get_by_text(as_pattern(NO_ACCESS_PANEL)).first).to_be_visible()
+        return
+
+    # PageError and the redirect both unmount the register entirely, heading and
+    # all, so nothing of it may be on screen.
+    expect(page.get_by_text(as_pattern(REGISTER_HEADING))).to_have_count(0)
+    if surface == "load_failure":
+        expect(page.get_by_text(as_pattern(LOAD_FAILURE_TITLE)).first).to_be_visible()
 
 
-def _wait_for_denial(page: Page, timeout_ms: int = 20_000) -> bool:
-    """Wait for whichever denial surface the app produces; True if it redirected.
+def _wait_for_denial(page: Page, timeout_ms: int = 20_000) -> str:
+    """Wait for whichever denial surface the app produces, and name it.
 
     Returns as soon as the page has settled into one of them, so the "register is
-    absent" assertions below cannot pass merely because the page had not finished
-    loading yet.
+    absent" assertions cannot pass merely because the page had not finished
+    loading yet. There are three, and which one appears is not this test's
+    business to pin down — only that one of them did:
+
+    ``"redirect"``
+        ``useModuleGuard``/``usePermissionGuard`` pushed to /auth/no-access or
+        /unauthorized. Not expected for a SchoolAdmin (both guards exempt the
+        role outright) but accepted: it is a stricter denial, not a weaker one.
+    ``"load_failure"``
+        ``initData``'s own fetches were refused, so ``fetchError`` is set and
+        ``PageError`` replaces the whole screen.
+    ``"no_access_panel"``
+        ``fetchData`` got its 403 and set ``classAccessDenied``, so the register
+        keeps its header but swaps the table for ``NoClassAccess``.
     """
     failure = page.get_by_text(as_pattern(LOAD_FAILURE_TITLE)).first
+    panel = page.get_by_text(as_pattern(NO_ACCESS_PANEL)).first
     deadline = timeout_ms
     step = 500
     while deadline > 0:
         if DENIAL_URL.search(page.url):
-            return True
+            return "redirect"
         if failure.count() > 0:
-            return False
+            return "load_failure"
+        if panel.count() > 0:
+            return "no_access_panel"
         page.wait_for_timeout(step)
         deadline -= step
 
     raise AssertionError(
-        "/module/attendance neither redirected to a no-access page nor rendered "
-        f"its load-failure panel within {timeout_ms}ms — current url {page.url!r}. "
+        "/module/attendance produced none of the three denials the app "
+        "implements — no redirect to a no-access page, no load-failure panel and "
+        f"no NoClassAccess panel within {timeout_ms}ms; current url {page.url!r}. "
         "If the register rendered instead, the feature-pack gate is not being "
         "enforced for this school."
     )
@@ -179,6 +226,12 @@ VIEW_SCENARIO = "academics_only"
 # The sidebar entry for this module (SideNavigation/nav-config.tsx), under the
 # "Academics Module" group.
 NAV_ATTENDANCE = re.compile(r"^\s*Attendance\s*$", re.I)
+NAV_SECTION_ACADEMICS = re.compile(r"^\s*Academics Module\s*$", re.I)
+
+# Where a SchoolAdmin picks the menu back up after choosing a branch — see
+# _open_from_academics_menu for why they cannot simply click on from where
+# select_branch left them. `home` is licensed on this pack.
+HOME_ROUTE = "home"
 
 # Every status badge AttendanceTable can render, including the "Not Marked"
 # fallback it uses for a student with no record on the selected date. Asserted
@@ -230,15 +283,7 @@ def test_school_admin_views_attendance(
         _activate_branch(page, base_url, ctx)
 
     with demo.step("Open Attendance from the Academics menu"):
-        link = page.get_by_role("link", name=NAV_ATTENDANCE).first
-        if link.count():
-            link.click()
-            page.wait_for_url(re.compile(rf"/module/{ATTENDANCE_ROUTE}"), timeout=20_000)
-            attendance.expect_loaded()
-        else:
-            # The sidebar collapses on narrow viewports; the route is the point,
-            # not the way in.
-            attendance.open()
+        _open_from_academics_menu(page, base_url, attendance)
 
     with demo.step("Read today's register for the whole campus"):
         attendance.expect_stats()
@@ -268,6 +313,49 @@ def test_school_admin_views_attendance(
     with demo.step("Open the calendar overview of every recorded day", dwell_ms=1500):
         attendance.open_view_all()
         attendance.expect_calendar_grid(this_month)
+
+
+def _open_from_academics_menu(
+    page: Page, base_url: str, attendance: AttendancePage
+) -> None:
+    """Reach the register the way an administrator does — off the sidebar.
+
+    Not a stylistic preference: this unit records video, and the footage has to
+    show how a real user gets to the register rather than cutting to its URL.
+
+    The detour through ``/module/home`` is what makes that possible. Picking a
+    branch is a prerequisite here (see ``_activate_branch``), and
+    ``BranchesPage.select_branch`` ends on a hardcoded push to
+    ``/module/community``; the ``academics_only`` pack does not license
+    community, so that fetch answers 403 "Feature not available in your plan"
+    and ``utils/handleErrorMessage.ts`` turns it into a hard redirect to
+    ``/auth/no-access`` — a route under ``app/auth/layout.tsx``, which renders no
+    sidebar at all. Clicking straight on from there is impossible, and a bare
+    "is the link on screen?" check would silently fall through to a deep link
+    every single run. ``/module/home`` is licensed on this pack, sits under the
+    module layout, and is the first entry of the very menu that carries
+    Attendance.
+
+    The sidebar's "Academics Module" section is ``branchOnly: true``
+    (nav-config.tsx), so it only renders once the branch store is filled — which
+    is why the section heading is asserted before the entry: a missing link
+    there means the branch selection did not take, not that attendance is
+    hidden.
+    """
+    goto_module(page, base_url, HOME_ROUTE)
+    expect(page.get_by_text(NAV_SECTION_ACADEMICS).first).to_be_visible(timeout=30_000)
+
+    # Scoped to the sidebar: each nav-config section renders its own <nav>, and
+    # a page-wide "Attendance" match could land on page chrome instead of on the
+    # menu entry.
+    link = page.get_by_role("navigation").get_by_role(
+        "link", name=as_pattern(NAV_ATTENDANCE)
+    ).first
+    expect(link).to_be_visible(timeout=30_000)
+    link.click()
+
+    page.wait_for_url(re.compile(rf"/module/{ATTENDANCE_ROUTE}"), timeout=30_000)
+    attendance.expect_loaded()
 
 
 def _activate_branch(page: Page, base_url: str, ctx: SchoolContext) -> str:

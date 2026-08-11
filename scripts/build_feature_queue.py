@@ -28,12 +28,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import yaml  # noqa: E402
 
-from config.module_catalog import CATALOG, ModuleDef  # noqa: E402
+from config.module_catalog import CATALOG, MANDATORY_MODULES, ModuleDef  # noqa: E402
 from config.scenarios import load_scenarios  # noqa: E402
 from config.settings import ROOT, get_settings  # noqa: E402
 
 
 OUT_PATH = ROOT / "config" / "features.yaml"
+
+# Single source of truth in config/module_catalog.py — coverage_warnings()
+# needs the same set.
 
 # Roles that manage a module, and roles that merely consume it. Mirrors the
 # coverage matrix in docs/plan.md §8. `manage` roles get a create/edit demo;
@@ -184,7 +187,22 @@ def build() -> list[dict]:
                 "video": True,
             })
 
-        if off_scenario is not None:
+        if module.key in MANDATORY_MODULES:
+            # The mirror image of a denial test: prove the module survives the
+            # most restrictive pack there is.
+            units.append({
+                "id": f"{module.category}.{module.key}.always_licensed",
+                "module": module.key,
+                "route": module.frontend_route,
+                "title": pretty,
+                "subtitle": f"{pretty} stays available on the most restricted feature pack",
+                "roles": ["school_admin"],
+                "intent": "mandatory",
+                "scenario": "minimal",
+                "test_path": path,
+                "video": False,
+            })
+        elif off_scenario is not None:
             units.append({
                 "id": f"{module.category}.{module.key}.denied",
                 "module": module.key,

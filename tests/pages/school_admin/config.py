@@ -66,12 +66,22 @@ class ConfigPage(BasePage):
     # ───────────────────── notification preference ────────────────
 
     def set_notification_preference(self, pref: NotificationPreference) -> None:
+        self.notification_checkbox(pref).check()
+
+    def notification_checkbox(self, pref: NotificationPreference) -> Locator:
+        """The checkbox for one preference, so callers can assert on it too.
+
+        The two boxes are mutually exclusive in practice — each one's ``checked``
+        is ``notificationPreference === "<its value>"`` — so "SMS is checked and
+        Email is not" is the only way to read the stored preference off this
+        screen.
+        """
         key = pref.strip().lower()
         if key not in PREFERENCE_NAMES:
             raise ValueError(
                 f"{pref!r} is not selectable: /module/config only renders Email and SMS."
             )
-        self._preference_checkbox(PREFERENCE_NAMES[key]).check()
+        return self._preference_checkbox(PREFERENCE_NAMES[key])
 
     # ──────────────────────────── save ────────────────────────────
 

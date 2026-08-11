@@ -34,6 +34,61 @@ CREATED_TOAST = re.compile(r"guardian added successfully", re.I)
 
 SEARCH_FIELD = re.compile(r"^\s*Search Guardian by name\b", re.I)
 
+# ── the sidebar entry (components/common/SideNavigation/nav-config.tsx) ──────
+# "Guardians" lives in the People Module section, which is ``branchOnly``: for a
+# SchoolAdmin neither the section nor the entry is drawn until a branch has been
+# selected (BranchesPage.select_branch).
+NAV_PEOPLE_SECTION = re.compile(r"^\s*People Module\s*$", re.I)
+NAV_GUARDIANS = re.compile(r"^\s*Guardians\s*$", re.I)
+
+# The register's table, in the order page.tsx declares its <th>s. The first and
+# last columns are the select-all checkbox and the per-row "View" link, both of
+# which render no text.
+GUARDIAN_COLUMN_HEADERS = (
+    "", "Name", "Phone Number", "Address", "Marital Status", "Email", "",
+)
+GUARDIAN_COLUMNS = {
+    "name": 1,
+    "phone": 2,
+    "address": 3,
+    "marital_status": 4,
+    "email": 5,
+}
+GUARDIANS_PANEL = re.compile(r"^\s*All Guardians\s*$", re.I)
+# The panel PageError swaps in when the register's own fetch fails.
+LOAD_FAILURE = re.compile(r"Failed to load guardians", re.I)
+
+# ── the profile screen (/module/guardians/<id>) ──────────────────────────────
+DETAIL_URL = re.compile(r"/module/guardians/(\d+)(?:[/?#]|$)")
+BASIC_INFO_TAB = re.compile(r"^\s*Basic Info\s*$", re.I)
+WARDS_TAB = re.compile(r"^\s*Wards\s*$", re.I)
+NO_WARDS = re.compile(r"^\s*No Wards Found\s*$", re.I)
+# Both rendered only for a role holding ("manage", "guardians") — page.tsx puts
+# them behind the same ``isManage`` flag.
+EDIT_PROFILE_BUTTON = re.compile(r"^\s*Edit Profile\s*$", re.I)
+ASSIGN_WARD_BUTTON = re.compile(r"^\s*Assign Ward\s*$", re.I)
+ASSIGN_WARD_MODAL = re.compile(r"^\s*Assign Existing Ward\s*$", re.I)
+# The footer button flips to "Assigning..." while the POST is in flight.
+ASSIGN_WARD_SUBMIT = re.compile(r"^\s*(Assign Ward|Assigning\.\.\.)\s*$", re.I)
+WARD_ASSIGNED_TOAST = re.compile(r"ward assigned successfully", re.I)
+
+# ── the edit wizard (/module/guardians/edit-guardian/<id>) ───────────────────
+EDIT_URL = re.compile(r"/module/guardians/edit-guardian/\d+")
+# The label flips to "Updating Guardian..." while the PUT is in flight; the same
+# button reads "Add Guardian" when the wizard is in create mode.
+UPDATE_BUTTON = re.compile(r"^\s*Updat(e|ing) Guardian", re.I)
+UPDATED_TOAST = re.compile(r"guardian updated successfully", re.I)
+
+EMPLOYER_FIELD = re.compile(
+    r"^\s*Employer\s*$|^\s*Enter name of employer\s*$", re.I
+)
+WORK_ADDRESS_FIELD = re.compile(
+    r"^\s*Work Address\s*$|^\s*Enter work address\s*$", re.I
+)
+DESCRIPTION_FIELD = re.compile(
+    r"^\s*Description\s*$|^\s*Add additional remarks\s*$", re.I
+)
+
 # The wizard steps use bare <label> elements with no `for`, so get_by_label never
 # binds and BasePage.fill_labeled falls through to the placeholder half of each
 # alternation. The label half is kept for the day the association is added.
@@ -81,6 +136,66 @@ class GuardiansPage(BasePage):
         super().open()
         expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(timeout=20_000)
         return self
+
+    def open_from_nav(self) -> "GuardiansPage":
+        """Reach the register the way a user does — the sidebar entry.
+
+        A demo video has to show how someone gets to the module rather than
+        teleport there, so recorded tests navigate with this; ``open`` stays the
+        deep link for everything else. Falls back to the deep link when the
+        sidebar is collapsed (narrow viewports), since the workspace is the
+        point, not the way in.
+        """
+        link = self.page.get_by_role("navigation").get_by_role(
+            "link", name=NAV_GUARDIANS
+        ).first
+        if link.count():
+            link.click()
+            self.page.wait_for_url(re.compile(r"/module/guardians"), timeout=25_000)
+            expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(
+                timeout=25_000
+            )
+            return self
+        return self.open()
+
+    def expect_nav_entry(self) -> None:
+        """The People section is on offer, and Guardians inside it.
+
+        The section title is asserted too, so "the link is there" cannot pass off
+        the back of a half-rendered sidebar. Scoped to the sidebar because
+        /module/home's quick-action grid carries a card with the same label and
+        href, and the profile screen's back link reads "Guardians" as well.
+        """
+        expect(self.page.get_by_text(NAV_PEOPLE_SECTION).first).to_be_visible(timeout=25_000)
+        nav = self.page.get_by_role("navigation")
+        expect(nav.get_by_role("link", name=NAV_GUARDIANS).first).to_be_visible(timeout=25_000)
+
+    # ───────────────────────── the register ───────────────────────
+
+    def expect_column_headers(self) -> None:
+        """Assert the header row cell by cell, pinning the column order.
+
+        ``cell()`` addresses columns positionally (``GUARDIAN_COLUMNS``), so a
+        column that moved would otherwise make every later assertion read the
+        wrong value rather than fail.
+        """
+        cells = self.page.locator("table thead tr").first.locator("th")
+        expect(cells).to_have_count(len(GUARDIAN_COLUMN_HEADERS))
+        for index, header in enumerate(GUARDIAN_COLUMN_HEADERS):
+            expect(cells.nth(index)).to_have_text(header)
+
+    def cell(self, email_or_name: str, column: str) -> Locator:
+        """One cell of a guardian's row, addressed by column name."""
+        if column not in GUARDIAN_COLUMNS:
+            raise KeyError(f"unknown guardians column {column!r}; "
+                           f"known: {sorted(GUARDIAN_COLUMNS)}")
+        return self.find_row(email_or_name).get_by_role("cell").nth(
+            GUARDIAN_COLUMNS[column]
+        )
+
+    def expect_no_load_failure(self) -> None:
+        """The PageError panel the screen swaps in when its fetch fails."""
+        expect(self.page.get_by_text(as_pattern(LOAD_FAILURE))).to_have_count(0)
 
     # ────────────────────────── creation ──────────────────────────
 
@@ -147,35 +262,159 @@ class GuardiansPage(BasePage):
         expect(self.find_row(email)).to_be_visible(timeout=20_000)
 
     def link_ward(self, *, guardian_name: str, student_name: str) -> None:
-        """Not supported: the guardians module has no working link-ward action.
+        """Not supported *through the edit wizard*; use ``assign_ward`` instead.
 
-        Nothing under ``/module/guardians`` can attach a ward to an existing
-        guardian:
+        The edit wizard renders the same Ward(s) picker the create wizard does,
+        but its ``PUT /guardian/<id>`` is a dead end —
+        ``GuardianService.update_guardian`` hands ``student_ids`` to a generic
+        ``setattr`` loop and ``GuardianProfile`` has no such column (the link
+        lives on the ``guardian_students`` association behind the ``students``
+        relationship), so the request succeeds and changes nothing. Driving it
+        would only produce a green test for a link that was never made.
 
-        * The detail page (``/module/guardians/<id>``) only lists wards; its
-          empty state says "You can assign wards by editing the guardian's
-          profile".
-        * That edit wizard does render the same Ward(s) picker, but its
-          ``PUT /guardian/<id>`` is a dead end — ``GuardianService.update_guardian``
-          hands ``student_ids`` to a generic ``setattr`` loop and
-          ``GuardianProfile`` has no such column (the link lives on the
-          ``guardian_students`` association behind the ``students``
-          relationship), so the request succeeds and changes nothing. Driving it
-          here would only produce a green test for a link that was never made.
-        * ``POST /guardian/<id>/wards/<student_id>`` exists on the backend but is
-          called from nowhere in the frontend.
+        The three ways a ward link is actually written:
 
-        Use ``create_guardian(ward_names=[student_name])`` when the guardian is
-        being created, or link from the student side: the Admit Student wizard's
-        Contact Details step has a "Guardian's Name" picker that sends
-        ``guardian_id`` on ``POST /student/`` (``tests/pages/people/students.py``).
+        * ``create_guardian(ward_names=[…])`` — ``POST /guardian/`` consumes
+          ``student_ids``.
+        * ``assign_ward(…)`` on the profile screen — the "Assign Ward" modal
+          (``[guardianID]/components/AssignWardModal.tsx``) posting
+          ``POST /guardian/<id>/wards/<student_id>``.
+        * The Admit Student wizard's "Guardian's Name" picker, which sends
+          ``guardian_id`` on ``POST /student/``
+          (``tests/pages/people/students.py``).
         """
         raise NotImplementedError(
-            "The guardians module cannot link a ward after creation: the edit "
-            "wizard's PUT /guardian/<id> silently drops student_ids. Pass "
-            "ward_names to create_guardian, or select the guardian during "
+            "The guardians edit wizard silently drops student_ids on "
+            "PUT /guardian/<id>. Pass ward_names to create_guardian, use "
+            "assign_ward() on the profile screen, or select the guardian during "
             f"student admission ({student_name!r} → {guardian_name!r})."
         )
+
+    # ───────────────────── the profile screen ─────────────────────
+
+    def open_detail(self, email_or_name: str) -> int:
+        """Open a guardian's profile from the register, returning its id.
+
+        The id is read back off the URL rather than out of the create response:
+        it is what every later API assertion addresses, and taking it from the
+        screen proves the row really does link to the record it claims to.
+        """
+        row = self.find_row(email_or_name)
+        expect(row).to_be_visible(timeout=20_000)
+        row.get_by_role("link").first.click()
+        self.page.wait_for_url(DETAIL_URL, timeout=25_000)
+        expect(self.page.get_by_role("button", name=BASIC_INFO_TAB).first).to_be_visible(
+            timeout=25_000
+        )
+        match = DETAIL_URL.search(self.page.url)
+        assert match, (
+            f"clicking the guardian's View link landed on {self.page.url!r}, "
+            f"which carries no /module/guardians/<id>"
+        )
+        return int(match.group(1))
+
+    def detail_value(self, label: str | re.Pattern) -> Locator:
+        """The value the profile prints under ``label``.
+
+        Every field on this screen is a caption element followed immediately by
+        a ``<p>`` — ``<label>Occupation</label><p>…</p>`` in the Guardian Info
+        and Basic Info panels, ``<p>Work Address</p><p>…</p>`` in More Info — so
+        the caption's next ``<p>`` sibling is the value in both layouts.
+        """
+        caption = self.page.get_by_text(_exact(label)).first
+        return caption.locator("xpath=following-sibling::p[1]")
+
+    def open_wards_tab(self) -> None:
+        self.page.get_by_role("button", name=WARDS_TAB).first.click()
+
+    def expect_no_wards(self) -> None:
+        expect(self.page.get_by_text(NO_WARDS).first).to_be_visible(timeout=20_000)
+
+    def assign_ward(self, student_name: str) -> None:
+        """Attach an existing student from the profile screen's "Assign Ward" modal.
+
+        ``POST /guardian/<id>/wards/<student_id>``, which settles family
+        membership first: a student who already belongs to a *different* family
+        is refused 400 "Student already belongs to a family". That is deliberate
+        (a student has at most one family), so a student admitted against
+        another guardian cannot be assigned here.
+        """
+        self.page.get_by_role("button", name=ASSIGN_WARD_BUTTON).first.click()
+        modal = self.page.locator(".ant-modal-content").last
+        expect(modal.get_by_text(ASSIGN_WARD_MODAL).first).to_be_visible(timeout=10_000)
+
+        # antd's Select puts role=combobox on the search input inside the modal.
+        picker = modal.get_by_role("combobox").first
+        picker.click()
+        picker.fill(student_name)
+        option = (
+            self.page.locator(".ant-select-dropdown:visible .ant-select-item-option")
+            .filter(has_text=re.compile(re.escape(student_name), re.I))
+            .first
+        )
+        expect(option).to_be_visible(timeout=10_000)
+        option.click()
+
+        # The footer's own button, not the profile header's trigger of the same
+        # name — hence the modal scope.
+        modal.get_by_role("button", name=ASSIGN_WARD_SUBMIT).first.click()
+        self.expect_toast(WARD_ASSIGNED_TOAST, timeout_ms=20_000)
+
+    # ───────────────────────── the edit wizard ────────────────────
+
+    def edit_profile(
+        self,
+        *,
+        occupation: str | None = None,
+        employer: str | None = None,
+        work_address: str | None = None,
+        relationship: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Correct a guardian from their profile screen's "Edit Profile" button.
+
+        Call it while the profile is open. The editor is the same three-step
+        wizard as the create form, prefilled from ``GET /guardian/<id>``, so the
+        two Continue buttons only need clicking — every starred field already
+        carries the value the guardian was created with.
+
+        Only the Admission Information step's fields are offered here, and that
+        is on purpose: ``edit-guardian/[guardianID]/page.tsx`` builds its
+        ``PUT /guardian/<id>`` body from ``occupation``, ``additional_remarks``,
+        ``relationship_type``, ``work_address``, ``employer_name``,
+        ``student_ids`` and a ``user`` block of ``first_name``/``other_names``/
+        ``profile_pic``/``religion`` only. The gender, date of birth, marital
+        status, nationality, address, location, phone and email boxes the first
+        two steps render are never sent, so a page object that offered them
+        would be promising writes that cannot land.
+        """
+        self.page.get_by_role("button", name=EDIT_PROFILE_BUTTON).first.click()
+        self.page.wait_for_url(EDIT_URL, timeout=25_000)
+
+        # Step 1 and 2 are already complete; each Continue waits for its own
+        # button to enable, which is what waits out the prefill fetch.
+        self._await_step(FIRST_NAME_FIELD)
+        self._continue(ADDRESS_FIELD)
+        self._continue(OCCUPATION_FIELD)
+
+        if occupation is not None:
+            self.fill_labeled(OCCUPATION_FIELD, _letters(occupation))
+        if employer is not None:
+            self.fill_labeled(EMPLOYER_FIELD, _letters(employer))
+        if work_address is not None:
+            self.fill_labeled(WORK_ADDRESS_FIELD, work_address)
+        if relationship is not None:
+            self.fill_labeled(RELATIONSHIP_FIELD, _letters(relationship))
+        if description is not None:
+            self.fill_labeled(DESCRIPTION_FIELD, _letters(description))
+
+        button = self.page.get_by_role("button", name=UPDATE_BUTTON).first
+        expect(button).to_be_enabled(timeout=10_000)
+        button.click()
+
+        self.expect_toast(UPDATED_TOAST, timeout_ms=20_000)
+        # The wizard routes back to the register on success.
+        expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(timeout=20_000)
 
     # ──────────────────────────── lookup ──────────────────────────
 
@@ -253,8 +492,14 @@ class GuardiansPage(BasePage):
         return label.locator("xpath=following-sibling::div[1]/div[1]")
 
 
-def _exact(text: str) -> re.Pattern[str]:
-    """Anchored option matcher — an unanchored "Male" also matches "Female"."""
+def _exact(text: str | re.Pattern[str]) -> re.Pattern[str]:
+    """Anchored matcher — an unanchored "Male" also matches "Female".
+
+    A pattern is passed through untouched, so callers that already anchored
+    their own (the profile screen's captions) can hand one straight in.
+    """
+    if isinstance(text, re.Pattern):
+        return text
     return re.compile(rf"^\s*{re.escape(text)}\s*$", re.I)
 
 

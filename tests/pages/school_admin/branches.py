@@ -31,12 +31,39 @@ read the real credential out of QA mode::
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from playwright.sync_api import Locator, Response, TimeoutError as PlaywrightTimeoutError, expect
 
-from tests.pages.base import BasePage
+from tests.pages.base import BasePage, as_pattern
 
 PAGE_HEADING = re.compile(r"^\s*Branches\s*$", re.I)
+PAGE_SUBTITLE = re.compile(
+    r"List of branches with key details including branch administrator", re.I
+)
+
+# Sidebar entry. The label appears twice in nav-config.tsx — once in the
+# branchOnly "People Module" section and once in the noBranchOnly "Governance
+# Module" section — but only one of the two sections renders at a time, so a
+# single link is on screen for any given branch state.
+NAV_SCHOOL_ADMIN_DASHBOARD = re.compile(r"^\s*School Admin Dashboard\s*$", re.I)
+LIST_URL = re.compile(r"/module/school_admin_dashboard")
+
+# The branches table, in the order page.tsx declares its <TableHead>s. Read-only
+# tests index cells by this tuple, so it doubles as the column contract.
+COLUMN_HEADERS = (
+    "Branch Name",
+    "Location",
+    "Date Created",
+    "Total Students",
+    "Total Parents",
+    "Teaching Staff",
+    "Non-Teaching Staff",
+    "Actions",
+)
+
+NEW_SCHOOL_ADMIN_TRIGGER = re.compile(r"^\s*New School Admin\s*$", re.I)
+EMPTY_TABLE = re.compile(r"^\s*No branches found\s*$", re.I)
 
 ADD_BRANCH_TRIGGER = re.compile(r"^\s*Add Branch\s*$", re.I)
 SAVE_BUTTON = re.compile(r"^\s*Sav(e|ing)", re.I)
@@ -70,6 +97,24 @@ DEFAULT_ADMIN_PHONE = "0200000000"
 DEFAULT_ADMIN_PASSWORD = "QaTest#2026"
 
 
+@dataclass(frozen=True)
+class BranchRow:
+    """One rendered row of the branches table, cell by cell.
+
+    Every field is the *text on screen*, not a parsed number: the page prints
+    each count through ``Number.toLocaleString()`` with a ``"0"`` fallback, and a
+    read-only test wants to compare exactly what a reader would see.
+    """
+
+    name: str
+    location: str
+    date_created: str
+    total_students: str
+    total_guardians: str
+    total_teachers: str
+    total_non_teaching: str
+
+
 class BranchesPage(BasePage):
     URL = "/module/school_admin_dashboard"
 
@@ -77,6 +122,100 @@ class BranchesPage(BasePage):
         super().open()
         expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(timeout=20_000)
         return self
+
+    def open_from_sidebar(self) -> "BranchesPage":
+        """Reach the screen the way a SchoolAdmin does — from the sidebar.
+
+        Falls back to the route when no link is on offer (the sidebar collapses
+        on narrow viewports); how the user got here is worth showing, but it is
+        not what this page object asserts.
+        """
+        link = self.page.get_by_role(
+            "link", name=as_pattern(NAV_SCHOOL_ADMIN_DASHBOARD)
+        ).first
+        if link.count():
+            link.click()
+            self.page.wait_for_url(LIST_URL, timeout=25_000)
+        else:
+            self.open()
+        return self.expect_loaded()
+
+    def expect_nav_entry(self) -> None:
+        expect(
+            self.page.get_by_role(
+                "link", name=as_pattern(NAV_SCHOOL_ADMIN_DASHBOARD)
+            ).first
+        ).to_be_visible(timeout=25_000)
+
+    # ───────────────────────── read-only ────────────────────────
+
+    def expect_loaded(self, timeout_ms: int = 30_000) -> "BranchesPage":
+        """Wait out the spinner ``page.tsx`` shows until the branches resolve.
+
+        The header row only exists once ``GET /branch/members/statistics`` has
+        answered — the loading state renders a bare ``<Spinner/>`` and the error
+        state a ``PageError`` — so this can neither pass on a half-drawn screen
+        nor hang on a school that legitimately has no branches.
+        """
+        expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(
+            timeout=timeout_ms
+        )
+        expect(self.page.locator("table thead tr").first).to_be_visible(
+            timeout=timeout_ms
+        )
+        return self
+
+    def expect_intro(self, school_name: str) -> None:
+        """The school this list belongs to, and the sentence describing it."""
+        expect(
+            self.page.get_by_text(as_pattern(re.escape(school_name))).first
+        ).to_be_visible(timeout=15_000)
+        expect(self.page.get_by_text(PAGE_SUBTITLE).first).to_be_visible(timeout=15_000)
+
+    def expect_column_headers(self) -> None:
+        """Every column of the branches table, in the order page.tsx declares it.
+
+        Anchored on ``thead th`` rather than on ``get_by_role("columnheader")``:
+        ``components/ui/table.tsx`` renders a bare ``<th>`` with no ``scope``,
+        and Playwright's role resolution maps such a cell to ``cell`` (or
+        ``gridcell`` under an explicit ``role="grid"``) rather than inferring
+        ``columnheader`` from its position — so a columnheader query matches
+        nothing on this page at all.
+        """
+        for header in COLUMN_HEADERS:
+            expect(
+                self.page.locator("thead th").filter(
+                    has_text=as_pattern(rf"^\s*{re.escape(header)}\s*$")
+                ).first
+            ).to_be_visible(timeout=15_000)
+
+    def expect_actions_offered(self) -> None:
+        """The three toolbar actions the screen puts on offer.
+
+        Asserted, never clicked, by the read-only unit: what a viewer is *shown*
+        is part of the screen, and pressing any of them would leave data behind.
+        """
+        for trigger in (ADD_BRANCH_TRIGGER, CREATE_ADMIN_TRIGGER, NEW_SCHOOL_ADMIN_TRIGGER):
+            expect(
+                self.page.get_by_role("button", name=as_pattern(trigger)).first
+            ).to_be_visible(timeout=15_000)
+
+    def read_row(self, name: str) -> BranchRow:
+        """The rendered cells of the branch named ``name``."""
+        row = self.find_row(name)
+        expect(row).to_be_visible(timeout=20_000)
+        cells = row.get_by_role("cell")
+        expect(cells).to_have_count(len(COLUMN_HEADERS), timeout=15_000)
+        text = [cells.nth(index).inner_text().strip() for index in range(len(COLUMN_HEADERS))]
+        return BranchRow(
+            name=text[0],
+            location=text[1],
+            date_created=text[2],
+            total_students=text[3],
+            total_guardians=text[4],
+            total_teachers=text[5],
+            total_non_teaching=text[6],
+        )
 
     # ───────────────────────── branches ─────────────────────────
 

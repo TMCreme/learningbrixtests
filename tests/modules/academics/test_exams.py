@@ -550,6 +550,12 @@ def test_exams_is_licensed_but_ships_no_management_surface(
             "cannot render at all and nothing below would be about exams"
         )
         BranchesPage(page, base_url).select_branch(str(ctx.branches[0]["name"]))
+        # select_branch always routes to /module/community, which this pack does
+        # not license — its 403 hard-redirects to /auth/no-access, a page with no
+        # sidebar at all. Asserting the menu on whatever it happened to land on
+        # made this test fail for a reason that has nothing to do with exams.
+        # Land somewhere the pack *does* license before reading the sidebar.
+        goto_module(page, base_url, "subjects")
         expect(page.get_by_text(NAV_SECTION_ACADEMICS).first).to_be_visible(
             timeout=20_000
         )

@@ -30,6 +30,33 @@ NON_TEACHING_TAB = re.compile(r"^\s*Non-teaching Staff\b", re.I)
 
 SEARCH_FIELD = re.compile(r"^\s*Search staff by name\s*$", re.I)
 
+# ── the sidebar entry (components/common/SideNavigation/nav-config.tsx) ──────
+# "Staff" lives in the People Module section, which is ``branchOnly``: for a
+# SchoolAdmin neither the section nor the entry is drawn until a branch has been
+# selected (BranchesPage.select_branch).
+NAV_PEOPLE_SECTION = re.compile(r"^\s*People Module\s*$", re.I)
+NAV_STAFF = re.compile(r"^\s*Staff\s*$", re.I)
+
+# The Teaching Staff tab's table, in the order page.tsx declares its <th>s. The
+# last column is the per-row "View" link, whose header cell is empty. The
+# Non-teaching tab inserts a "Role" column after Phone Number and swaps
+# "Subject(s) Taught" for "Job Title", so this tuple is the teaching tab's only.
+TEACHING_COLUMN_HEADERS = (
+    "Name", "Email Address", "Phone Number", "Subject(s) Taught", "Status",
+    "Date of Hire", "",
+)
+TEACHING_COLUMNS = {
+    "name": 0,
+    "email": 1,
+    "phone": 2,
+    "subjects": 3,
+    "status": 4,
+    "hire_date": 5,
+}
+# The PageError panel the list swaps in when its own fetch fails.
+LOAD_FAILURE = re.compile(r"Failed to load staff data", re.I)
+NO_TEACHING_STAFF = re.compile(r"^\s*No teaching staff found\s*$", re.I)
+
 ADD_TEACHING_TRIGGER = re.compile(r"^\s*Add Teaching Staff\s*$", re.I)
 ADD_NON_TEACHING_TRIGGER = re.compile(r"^\s*Add Non-teaching Staff\s*$", re.I)
 
@@ -76,6 +103,31 @@ ROLE_LABEL = re.compile(r"^\s*Non teaching Staff Role\s*$", re.I)
 TEACHING_CREATED_TOAST = re.compile(r"^\s*Staff added successfully", re.I)
 NON_TEACHING_CREATED_TOAST = re.compile(r"Non-teaching staff added successfully", re.I)
 
+# ── the profile screen (/module/staff/<id>) ─────────────────────────────────
+DETAIL_URL = re.compile(r"/module/staff/(\d+)(?:[/?#]|$)")
+BASIC_INFO_TAB = re.compile(r"^\s*Basic Info\s*$", re.I)
+ACADEMICS_TAB = re.compile(r"^\s*Academics\s*$", re.I)
+NO_SUBJECTS_ASSIGNED = re.compile(r"^\s*No subjects assigned yet\.\s*$", re.I)
+# Rendered only for a role holding ("manage", "staff") — page.tsx puts it behind
+# its ``isManage`` flag. It is a <button> wrapped in a <Link>.
+EDIT_PROFILE_BUTTON = re.compile(r"^\s*Edit Profile\s*$", re.I)
+PROFILE_LOAD_FAILURE = re.compile(r"Failed to load staff profile", re.I)
+
+# ── the edit wizard (/module/staff/edit-staff/<id>) ─────────────────────────
+EDIT_URL = re.compile(r"/module/staff/edit-staff/\d+")
+# The same button reads "Add Staff" in create mode, and flips to
+# "Updating Staff..." while the PUT is in flight.
+SUBMIT_UPDATE = re.compile(r"^\s*Updat(e|ing) Staff", re.I)
+UPDATED_TOAST = re.compile(r"Staff updated successfully", re.I)
+DESCRIPTION_FIELD = re.compile(
+    r"^\s*Description\s*$|^\s*Add additional remarks\s*$", re.I
+)
+# The Radix Select trigger shows the *selected* label once the edit wizard has
+# prefilled it ("Full-time"), never its placeholder, so the create flow's
+# placeholder-anchored matcher finds nothing here — anchor on the <label>.
+EMPLOYMENT_TYPE_LABEL = re.compile(r"^\s*Employment Type\s*\*?\s*$", re.I)
+DEGREE_LABEL = re.compile(r"^\s*Highest Degree Earned\s*$", re.I)
+
 _APOSTROPHES = "['’]"
 
 
@@ -86,6 +138,39 @@ class StaffPage(BasePage):
         super().open()
         expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(timeout=20_000)
         return self
+
+    def open_from_nav(self) -> "StaffPage":
+        """Reach the register the way a user does — the sidebar entry.
+
+        A demo video has to show how someone gets to the module rather than
+        teleport there, so recorded tests navigate with this; ``open`` stays the
+        deep link for everything else. Falls back to the deep link when the
+        sidebar is collapsed (narrow viewports), since the workspace is the
+        point, not the way in.
+        """
+        link = self.page.get_by_role("navigation").get_by_role(
+            "link", name=NAV_STAFF
+        ).first
+        if link.count():
+            link.click()
+            self.page.wait_for_url(re.compile(r"/module/staff"), timeout=25_000)
+            expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(
+                timeout=25_000
+            )
+            return self
+        return self.open()
+
+    def expect_nav_entry(self) -> None:
+        """The People section is on offer, and Staff inside it.
+
+        The section title is asserted too, so "the link is there" cannot pass off
+        the back of a half-rendered sidebar. Scoped to the sidebar because
+        /module/home's quick-action grid carries a card with the same label and
+        href, and the profile screen's back link reads "Staff" as well.
+        """
+        expect(self.page.get_by_text(NAV_PEOPLE_SECTION).first).to_be_visible(timeout=25_000)
+        nav = self.page.get_by_role("navigation")
+        expect(nav.get_by_role("link", name=NAV_STAFF).first).to_be_visible(timeout=25_000)
 
     # ──────────────────────────── tabs ────────────────────────────
 
@@ -229,6 +314,145 @@ class StaffPage(BasePage):
         self.show_non_teaching()
         expect(self.find_row(email)).to_be_visible(timeout=20_000)
 
+    # ─────────────────────────── the register ─────────────────────
+
+    def expect_column_headers(self) -> None:
+        """Assert the Teaching Staff header row cell by cell, pinning the order.
+
+        ``cell()`` addresses columns positionally (``TEACHING_COLUMNS``), so a
+        column that moved would otherwise make every later assertion read the
+        wrong value rather than fail. Select the teaching tab first — the
+        non-teaching tab renders a different set.
+        """
+        cells = self.page.locator("table thead tr").first.locator("th")
+        expect(cells).to_have_count(len(TEACHING_COLUMN_HEADERS))
+        for index, header in enumerate(TEACHING_COLUMN_HEADERS):
+            expect(cells.nth(index)).to_have_text(header)
+
+    def cell(self, email_or_name: str, column: str) -> Locator:
+        """One cell of a teaching-staff row, addressed by column name."""
+        if column not in TEACHING_COLUMNS:
+            raise KeyError(f"unknown staff column {column!r}; "
+                           f"known: {sorted(TEACHING_COLUMNS)}")
+        return self.find_row(email_or_name).get_by_role("cell").nth(
+            TEACHING_COLUMNS[column]
+        )
+
+    def expect_no_load_failure(self) -> None:
+        """The PageError panels the register and the profile swap in on a failed fetch."""
+        expect(self.page.get_by_text(as_pattern(LOAD_FAILURE))).to_have_count(0)
+        expect(self.page.get_by_text(as_pattern(PROFILE_LOAD_FAILURE))).to_have_count(0)
+
+    # ───────────────────── the profile screen ─────────────────────
+
+    def open_detail(self, email_or_name: str) -> int:
+        """Open a teaching staff member's profile from the register, returning its id.
+
+        The id is read back off the URL rather than out of the create response:
+        it is what every later API assertion addresses, and taking it from the
+        screen proves the row really does link to the record it claims to.
+        """
+        row = self.find_row(email_or_name)
+        expect(row).to_be_visible(timeout=20_000)
+        row.get_by_role("link").first.click()
+        self.page.wait_for_url(DETAIL_URL, timeout=25_000)
+        expect(self.page.get_by_role("button", name=BASIC_INFO_TAB).first).to_be_visible(
+            timeout=25_000
+        )
+        match = DETAIL_URL.search(self.page.url)
+        assert match, (
+            f"clicking the staff member's View link landed on {self.page.url!r}, "
+            f"which carries no /module/staff/<id>"
+        )
+        return int(match.group(1))
+
+    def detail_value(self, label: str | re.Pattern) -> Locator:
+        """The value the profile prints under ``label``.
+
+        Every field on this screen is a caption ``<p>`` followed immediately by
+        the value ``<p>`` — ``InfoField`` in the tab panels, and the same shape in
+        the "Staff Info" side card — so the caption's next ``<p>`` sibling is the
+        value in both layouts.
+        """
+        caption = self.page.get_by_text(_exact(label)).first
+        return caption.locator("xpath=following-sibling::p[1]")
+
+    def open_academics_tab(self) -> None:
+        self.page.get_by_role("button", name=ACADEMICS_TAB).first.click()
+
+    # ─────────────────────── the edit wizard ──────────────────────
+
+    def edit_teaching_staff(
+        self,
+        *,
+        address: str | None = None,
+        location: str | None = None,
+        phone: str | None = None,
+        religion: str | None = None,
+        job_title: str | None = None,
+        employment_type: str | None = None,
+        field_of_study: str | None = None,
+        description: str | None = None,
+    ) -> None:
+        """Correct a teaching staff member from their profile's "Edit Profile" button.
+
+        Call it while the profile is open. The editor is the same three-step
+        wizard as the create form, prefilled from ``GET /teacher/<id>``, so the
+        two Continue buttons only need clicking — every starred field already
+        carries the value the staff member was created with.
+
+        Only the fields ``edit-staff/[staffID]/page.tsx`` actually sends are
+        offered. Its ``PUT /teacher/<id>`` body carries ``job_title``,
+        ``employment_type``, ``admission_date``, ``field_of_study``,
+        ``highest_degree_earned``, ``additional_remarks`` and a ``user`` block —
+        of which the backend's ``UserUpdate`` model declares only ``first_name``,
+        ``other_names``, ``profile_pic``, ``religion``, ``gender``,
+        ``date_of_birth``, ``nationality``, ``marital_status``,
+        ``residential_address``, ``location``, ``primary_phone``,
+        ``secondary_phone`` and ``zip_code``. Email, local dialect and the
+        hard-coded password the page also sends are *not* fields of that model
+        and are dropped, so a page object that offered them would be promising
+        writes that cannot land.
+
+        The wizard hides its Assigned Class/Subject pickers in edit mode
+        (``formData.staffID`` is set) and says so on screen: assignments are
+        managed from the profile's Academics tab instead.
+        """
+        self.page.get_by_role("button", name=EDIT_PROFILE_BUTTON).first.click()
+        self.page.wait_for_url(EDIT_URL, timeout=25_000)
+
+        # Step 1 is already complete; Continue waits for its own button to
+        # enable, which is what waits out the prefill fetch.
+        self._await_step(FIRST_NAME_FIELD)
+        self._continue(ADDRESS_FIELD)
+
+        if address is not None:
+            self.fill_labeled(ADDRESS_FIELD, address)
+        if location is not None:
+            self.fill_labeled(LOCATION_FIELD, _letters(location))
+        if phone is not None:
+            self.fill_labeled(PHONE_FIELD, _digits(phone))
+        if religion is not None:
+            self.fill_labeled(RELIGION_FIELD, _letters(religion))
+        self._continue(JOB_TITLE_FIELD)
+
+        if job_title is not None:
+            self.fill_labeled(JOB_TITLE_FIELD, _letters(job_title))
+        if field_of_study is not None:
+            self.fill_labeled(FIELD_OF_STUDY_FIELD, _letters(field_of_study))
+        if employment_type is not None:
+            # By label, not by placeholder: the trigger already shows the
+            # prefilled selection, so there is no placeholder text to filter on.
+            self.select_option_by_label(EMPLOYMENT_TYPE_LABEL, _exact(employment_type))
+        if description is not None:
+            self.fill_labeled(DESCRIPTION_FIELD, _letters(description))
+
+        self._submit(SUBMIT_UPDATE)
+        self.expect_toast(UPDATED_TOAST, timeout_ms=20_000)
+
+        # The wizard routes back to /module/staff on success.
+        expect(self.page.get_by_role("heading", name=PAGE_HEADING)).to_be_visible(timeout=20_000)
+
     # ──────────────────────────── lookup ──────────────────────────
 
     def find_row(self, email_or_name: str) -> Locator:
@@ -305,12 +529,16 @@ class StaffPage(BasePage):
                          value, display_format="%d/%m/%Y")
 
 
-def _exact(text: str) -> re.Pattern[str]:
+def _exact(text: str | re.Pattern[str]) -> re.Pattern[str]:
     """Anchored option matcher — an unanchored "Male" also matches "Female".
 
     The degree labels ship an ``&apos;``, which can come back as either
-    apostrophe, so both are accepted.
+    apostrophe, so both are accepted. A pattern is passed through untouched, so
+    callers that already anchored their own (the profile screen's captions) can
+    hand one straight in.
     """
+    if isinstance(text, re.Pattern):
+        return text
     body = re.escape(text).replace("'", _APOSTROPHES)
     return re.compile(rf"^\s*{body}\s*$", re.I)
 

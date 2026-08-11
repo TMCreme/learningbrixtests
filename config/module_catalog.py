@@ -85,3 +85,25 @@ def get(key: str) -> ModuleDef:
 
 def by_category(category: str) -> tuple[ModuleDef, ...]:
     return tuple(m for m in CATALOG if m.category == category)
+
+
+# Modules no feature pack can exclude. The pack builder locks the "people" and
+# "governance" groups into every pack (BASIC_GROUPS in
+# smsfrontend/src/app/module/feature_flag/{create,edit}/page.tsx), with only
+# `guardians` and `families` optional inside them. Confirmed intended on
+# 2026-08-09: governance is core and always on.
+#
+# These therefore have no denial path. The queue gives them an
+# `always_licensed` unit instead of a `denied` one, and coverage_warnings()
+# must not report them as "never negatively tested" — that is the design.
+MANDATORY_MODULES: frozenset[str] = frozenset({
+    "home",
+    "dashboard",
+    "students",
+    "staff",
+    "school_admin_dashboard",
+    "school_configuration",
+    "access_roles",
+    "audit_trails",
+    "academic_year_and_term",
+})
