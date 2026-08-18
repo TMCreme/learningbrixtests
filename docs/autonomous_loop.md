@@ -207,6 +207,42 @@ Every demo starts from the login page and navigates to the module through the
 UI — no deep-linking to a module route. A viewer should see how a real user
 reaches the feature, not just the end screen.
 
+### The pointer
+
+Chrome's screencast API — what Playwright records through — captures the page
+viewport and **never the OS cursor**, so footage otherwise shows fields filling
+and dialogs opening with nothing visibly doing it. `tests/support/cursor.py`
+draws a synthetic pointer into the page instead:
+
+- An init script adds an arrow that follows real `mousemove` events, with a
+  ripple on `mousedown`. Playwright's mouse dispatches genuine events, so the
+  arrow tracks whatever the test drives.
+- Travel is animated by a **CSS transition on `transform`**, not by dispatching
+  interpolated moves. That renders the same smooth glide however abruptly the
+  coordinates arrive, so even an unwrapped action looks like movement.
+- `install_glide()` patches `Locator` **and** `Page` actions (`click`, `fill`,
+  `hover`, `check`, `select_option`, …) to move the mouse to the target before
+  acting. Both surfaces are needed: the page objects mix `page.fill("input…")`
+  with `page.get_by_role(…).click()`, and covering only one gives a cursor that
+  jumps around a form it is supposedly filling.
+
+It costs about 25% on video length, so `VIDEO_MAX_SECONDS` is 150. Nothing here
+touches the assertion suite — the init script is added only to the demo context,
+and the patch engages only for pages that fixture registers.
+
+Two mistakes worth not repeating, both found by inspecting frames rather than
+trusting a green test:
+
+- Creating the cursor eagerly **threw and killed the whole script**, listeners
+  included, because an init script runs before `document.documentElement`
+  exists. Everything is created lazily now.
+- Waiting explicitly for the travel to land double-counted `slow_mo`, which
+  already pauses longer than the animation. The settle wait is now the shortfall
+  against `slow_mo`, usually zero.
+
+Videos recorded before the pointer existed are kept at
+`artifacts/videos/v1-no-cursor/`.
+
 Three deliberate choices worth knowing:
 
 - **The Next.js dev badge is hidden** during recording. `tests/fixtures/video.py`

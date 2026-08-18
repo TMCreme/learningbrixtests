@@ -32,6 +32,7 @@ import pytest
 from playwright.sync_api import Browser, BrowserContext, Page
 
 from config.settings import ROOT, Settings
+from tests.support.cursor import CURSOR_SCRIPT, install_glide, register as register_cursor
 from tests.support.demo import DemoRecorder, slugify
 
 
@@ -136,8 +137,15 @@ def demo(request, demo_browser: Browser | None, settings: Settings):
         record_video_size={"width": settings.video_width, "height": settings.video_height},
     )
     context.add_init_script(_HIDE_DEV_OVERLAY)
+    # Chrome's screencast never captures the real cursor, so the recording gets
+    # a drawn one — and the Locator patch makes it travel to each control rather
+    # than teleport. Both are scoped to this context/page; the assertion suite
+    # is untouched. See tests/support/cursor.py.
+    context.add_init_script(CURSOR_SCRIPT)
+    install_glide(settings.video_slow_mo_ms)
 
     page = context.new_page()
+    register_cursor(page)
     page.set_default_timeout(settings.default_timeout_ms)
     page.set_default_navigation_timeout(settings.navigation_timeout_ms)
 
